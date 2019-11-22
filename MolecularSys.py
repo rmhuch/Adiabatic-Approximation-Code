@@ -64,3 +64,36 @@ class Molecule:
         return masses
 
 
+    # class method perhaps?
+    # def atom_dists(coords):
+    #     x_pos = (0, 1)
+    #     xps = coords[:, x_pos]
+    #     xdiffs = np.diff(xps, axis=1)
+    #     xdiffs = xdiffs.reshape((len(xdiffs), 3))
+    #     xdists = np.linalg.norm(xdiffs, axis=1)
+    #     xdists = np.around(xdists, 9)
+    #
+    #     y_pos = (1, 2)
+    #     yps = coords[:, y_pos]
+    #     ydiffs = np.diff(yps, axis=1)
+    #     ydiffs = ydiffs.reshape((len(ydiffs), 3))
+    #     ydists = np.linalg.norm(ydiffs, axis=1)
+    #     ydists = np.around(ydists, 9)
+    #
+    #     oo_pos = (1, 5)
+    #     oops = coords[:, oo_pos]
+    #     oodiffs = np.diff(oops, axis=1)
+    #     oodiffs = oodiffs.reshape((len(oodiffs), 3))
+    #     oodists = np.linalg.norm(oodiffs, axis=1)
+    #     oodists = np.around(oodists, 9)
+    #
+    #     oo2_pos = (1, 8)
+    #     oo2ps = coords[:, oo2_pos]
+    #     oo2diffs = np.diff(oo2ps, axis=1)
+    #     oo2diffs = oo2diffs.reshape((len(oo2diffs), 3))
+    #     oo2dists = np.linalg.norm(oo2diffs, axis=1)
+    #     oo2dists = np.around(oo2dists, 9)
+    #
+    #     dists = np.column_stack((xdists, ydists, oodists, oo2dists))
+    #     return dists
+

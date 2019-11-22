@@ -3,14 +3,15 @@ import numpy as np
 
 
 class LogInterpreter:
-    def __init__(self, *logs, method=None, scancoords=None, **kwargs):
+    def __init__(self, *logs, moleculeObj=None, **kwargs):
         self.params = kwargs
         if len(logs) == 0:
             raise Exception('Nothing to interpret.')
         self.logs = logs
-        self.method = method
-        self.scancoord_1 = scancoords[0]
-        self.scancoord_2 = scancoords[1]
+        self.molecule = moleculeObj
+        self.method = self.molecule.method
+        self.scancoord_1 = self.molecule.scanCoords[0]
+        self.scancoord_2 = self.molecule.scanCoords[1]
         self._atomnum = None  # should be atomic numbers
         self._energies = None  # np.ndarray of electronic energies from Gaussian
         self._finite_energies = None  # np.ndarray of electronic energies from bottom of oo wells
@@ -87,8 +88,7 @@ class LogInterpreter:
         implementation should plot to check"""
         import os
         import glob as glob
-        main_dir = os.path.dirname(os.path.dirname(__file__))
-        FD_dir = os.path.join(main_dir, 'Finite Scan Data')
+        FD_dir = os.path.join(self.molecule.mol_dir, 'Finite Scan Data')
         FD_scans = sorted(glob.glob(os.path.join(FD_dir, ('Egraph_%s_*.dat' % self.method))))
         oos = np.unique(np.array(list(self.cartesians.keys()))[:, 0])
         finite_energies = np.empty((0, 3), int)
@@ -270,7 +270,7 @@ class LogInterpreter:
         :rtype: np.ndarray
         """
         import os
-        scan_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '1D Scans')
+        scan_dir = os.path.join(self.molecule.mol_dir, '1D Scans')
         onedeescan = os.path.join(scan_dir, ("1D_%s_ooscan.log" % self.method))
         with GaussianLogReader(onedeescan) as reader:
             parse = reader.parse("OptimizedScanEnergies")
@@ -279,7 +279,7 @@ class LogInterpreter:
         roh = coords['Roh']
         ens = np.column_stack((roo, roh, energy_array))
         ens[:, 2:] -= min(ens[:, 2:])  # shift gaussian numbers to zero HERE to avoid headaches later.
-        return ens
+        return ens[:18, :]
 
     def write_finitescan(self, config=None, variables=None):
         """ Writes and save a gaussian gjf file to conduct a scan with a small enough range for finite differencing
