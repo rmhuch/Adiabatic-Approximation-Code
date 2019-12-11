@@ -55,12 +55,14 @@ class LogInterpreter:
             self._dipoles = self.get_dips(**self.params)
         return self._dipoles
 
-    def get_electronic_energy(self, shift=True, optimized=False, **params):
+    def get_electronic_energy(self, shift=True, optimized=None, **params):
         """Pulls Energies from the "Summary" portion of a log file. Also shifts the potential energy to0 to avoid
          problems with DVR later.
         :return: an array (col0: scancoord_1(ang), col1: scancoord_2(ang), col2: energy(shifted hartrees))
         :rtype: np.ndarray """
         ens = []
+        if optimized is None:
+            raise Exception("No energy type specified.")
         for log in self.logs:
             if optimized:
                 with GaussianLogReader(log) as reader:
@@ -72,7 +74,9 @@ class LogInterpreter:
             else:
                 with GaussianLogReader(log) as reader:
                     parse = reader.parse("ScanEnergies")
-                ens.append(parse["ScanEnergies"])
+                just_the_val = parse["ScanEnergies"]["values"][:, 1:]  # returns only the MP2 energy
+                just_the_val = np.concatenate((just_the_val[:, :2], just_the_val[:, [-1]]), axis=1)
+                ens.append(just_the_val)
         energy = np.concatenate(ens)
         energy[:, 0] *= 2
         idx = np.lexsort((energy[:, 1], energy[:, 0]))
@@ -108,24 +112,17 @@ class LogInterpreter:
         :return: cartesian coordinates at STANDARD optimized geometry keyed by the (scancoord_1, scancoord_2) distances.
         :rtype: OrderedDict
         """
+        from MolecularSys import MolecularOperations
         from collections import OrderedDict
         struct = OrderedDict()
         for log in self.logs:
             with GaussianLogReader(log) as reader:
                 parse = reader.parse("StandardCartesianCoordinates")
             atomnum, ccs = parse["StandardCartesianCoordinates"]
-            x_pos = self.scancoord_1
-            xps = ccs[:, x_pos]
-            xdiffs = np.diff(xps, axis=1)
-            xdiffs = xdiffs.reshape((len(xdiffs), 3))
-            xdists = np.linalg.norm(xdiffs, axis=1)
+            xdists = MolecularOperations.calculateBonds(ccs, *self.scancoord_1)
             xdists = np.around(xdists, 4)
 
-            y_pos = self.scancoord_2
-            yps = ccs[:, y_pos]
-            ydiffs = np.diff(yps, axis=1)
-            ydiffs = ydiffs.reshape((len(ydiffs), 3))
-            ydists = np.linalg.norm(ydiffs, axis=1)
+            ydists = MolecularOperations.calculateBonds(ccs, *self.scancoord_2)
             ydists = np.around(ydists, 4)
 
             coords = zip(xdists, ydists, ccs)
@@ -194,7 +191,7 @@ class LogInterpreter:
             else:
                 dips = parse["DipoleMoments"]
             dips = np.array(list(dips))
-            coord = LogInterpreter(log, scancoord_1=(0, 1), scancoord_2=(1, 2)).cartesians.keys()
+            coord = LogInterpreter(log, moleculeObj=self.molecule).cartesians.keys()
             struct.update(((c, d) for c, d in zip(coord, dips)))
         return struct
 

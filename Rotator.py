@@ -4,14 +4,12 @@ import numpy as np
 def rot1(coords, dips, xAxis_atom=None):
     if xAxis_atom is None:
         raise Exception("No x-axis atom defined")
-    # rotation of O(0) to x-axis
     # step 1: rotate about z-axis.
     y = coords[:, xAxis_atom, 1]
     x = coords[:, xAxis_atom, 0]
     phi_1 = np.arctan2(y, x)
     cphi = np.cos(phi_1)
     sphi = np.sin(phi_1)
-
     z_rotator = np.zeros((len(coords), 3, 3))
     z_rotator[:, 0, :] = np.column_stack((cphi, sphi, np.zeros(len(coords))))
     z_rotator[:, 1, :] = np.column_stack((-1*sphi, cphi, np.zeros(len(coords))))
@@ -46,7 +44,6 @@ def rot2(coords, dips, xyPlane_atom=None, outerO1=None, outerO2=None):
             onew[i, 0] = row[0]/nrm1[i]
             onew[i, 1] = o1[i, 1]/nrm1[i]
             onew[i, 2] = o1[i, 2]/nrm1[i]
-        # ono = o1/np.linalg.norm(o1)
         o2 = coords[:, outerO2, :]
         nrm2 = np.linalg.norm(o2, axis=1)
         otwo = np.zeros((len(coords), 3))
@@ -87,18 +84,14 @@ def many_rotations(log_data, centralO_atom=None, xAxis_atom=None, xyPlane_atom=N
     all_coords = Constants.convert(all_coords, "angstroms", to_AU=True)
     all_dips = np.array(list(log_data.dipoles.values()))
     all_dips = all_dips.reshape(len(all_coords), 1, 3)
-
     if centralO_atom is None:
         raise Exception("No origin atom defined")
     # shift to origin
     o_coords = all_coords - all_coords[:, np.newaxis, centralO_atom]
     o_dips = all_dips - all_coords[:, np.newaxis, centralO_atom]
-    # rotation of O x-axis
-    r1_coords, r1_dips = rot1(o_coords, o_dips, xAxis_atom)
-    # rotation of other Os bisector to xy plane
-    r2_coords, r2_dips = rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)
-    # inversion of one O
-    rot_coords, rot_dips = inverter(r2_coords, r2_dips, inversion_atom)
+    r1_coords, r1_dips = rot1(o_coords, o_dips, xAxis_atom)      # rotation to x-axis
+    r2_coords, r2_dips = rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)  # rotation to xy-plane
+    rot_coords, rot_dips = inverter(r2_coords, r2_dips, inversion_atom)  # inversion of designated atom
     dipadedodas = rot_dips.reshape(len(all_coords), 3)
     return rot_coords, dipadedodas
 

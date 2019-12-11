@@ -55,7 +55,7 @@ class AdiabaticApprox:
         return mu
 
     @staticmethod
-    def wfn_flipper(wavefunctions_array, plotPhasedWfns=False):
+    def wfn_flipper(wavefunctions_array, plotPhasedWfns=False, pot_array=None):
         """ Rephases output wavefunctions such that they are phased to the same orientation as the one before"""
         import matplotlib.pyplot as plt
         wfns = np.zeros((len(wavefunctions_array), len(wavefunctions_array[0]), 4))
@@ -78,17 +78,17 @@ class AdiabaticApprox:
                 nnes_ovn = np.dot(wavefunctions_array[k - 1, :, 3], nnes_wfn)
                 if nnes_ovn <= 0:
                     nnes_wfn *= -1
-                if plotPhasedWfns:
-                    x = np.arange(len(gs_wfn))
-                    plt.plot(x, wavefunctions_array[k - 1, :, 0], "--k", x, wavefunctions_array[k - 1, :, 1], "--k")
-                    plt.plot(x, wavefunctions_array[k - 1, :, 2], "--k", x, wavefunctions_array[k - 1, :, 3], "--k")
-                    plt.plot(x, gs_wfn, x, es_wfn)
-                    plt.plot(x, nes_wfn, x, nnes_wfn)
-                    plt.show()
             wfns[k, :, 0] = gs_wfn
             wfns[k, :, 1] = es_wfn
             wfns[k, :, 2] = nes_wfn
             wfns[k, :, 3] = nnes_wfn
+        if plotPhasedWfns:
+            for k in np.arange(len(wavefunctions_array)):
+                x = pot_array[k, :, 0]
+                plt.plot(x, wfns[k, :, 0])
+                plt.plot(x, wfns[k, :, 1]+1)
+                plt.plot(x, wfns[k, :, 2]+2)
+                plt.plot(x, wfns[k, :, 3]+3)
         return wfns
     
     def run_harOH_DVR(self, plotPhasedWfns=None):
@@ -105,7 +105,8 @@ class AdiabaticApprox:
 
         for j, n in enumerate(finite_dict):
             x = Constants.convert(finite_dict[n][:, 0], "angstroms", to_AU=True)
-            sx = x - np.amin(x)
+            min_idx = np.argmin(finite_dict[n][:, 1])
+            sx = x - x[min_idx]
             y = finite_dict[n][:, 1]
             k = finite_difference(sx, y, 2, end_point_precision=0, stencil=5, only_center=True)[0]
             mini = min(sx) - 1.0
@@ -113,15 +114,17 @@ class AdiabaticApprox:
             res = dvr_1D.run(potential_function="harmonic_oscillator", k=k, mass=self.OHmass,
                              divs=self.NumPts, domain=(mini, maxi), num_wfns=self.desiredEnergies)
             potential = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
-            potential_array[j, :, 0] = Constants.convert(res.grid, "angstroms", to_AU=False)
+            grid = Constants.convert((res.grid + x[min_idx]), "angstroms", to_AU=False)
+            shiftgrid = (n/2) + grid
+            potential_array[j, :, 0] = shiftgrid
             potential_array[j, :, 1] = potential
             ens = Constants.convert((res.wavefunctions.energies + min(y)), "wavenumbers", to_AU=False)
             energies_array[j, :] = ens
             wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
         epsilon_pots = np.column_stack((roos, energies_array[:, :4]))
-        npz_filename = os.path.join(self.DVRdir, f"OH_harmDVR_numpts{self.NumPts}_energies{self.desiredEnergies}.npz")
-        # data saved in wavenumbers/angstroms
-        wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns)
+        npz_filename = os.path.join(self.DVRdir, f"{self.method}_HarmOHDVR_energies{self.desiredEnergies}.npz")
+        # data saved in wavenumbers/angstroms with potential shifted BACK to OH scan points
+        wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns, pot_array=potential_array)
         np.savez(npz_filename, method="harm", potential=potential_array, epsilonPots=epsilon_pots,
                  wfns_array=wavefuns_array)
         return npz_filename
@@ -146,15 +149,17 @@ class AdiabaticApprox:
             res = dvr_1D.run(potential_function=Potentials1D().potlint(x, en), mass=self.OHmass,
                              divs=self.NumPts, domain=(mini, maxi), num_wfns=self.desiredEnergies)
             potential = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
-            potential_array[j, :, 0] = Constants.convert(res.grid, "angstroms", to_AU=False)
+            grid = Constants.convert(res.grid, "angstroms", to_AU=False)
+            shiftgrid = (n/2) + grid
+            potential_array[j, :, 0] = shiftgrid
             potential_array[j, :, 1] = potential
             ens = Constants.convert(res.wavefunctions.energies, "wavenumbers", to_AU=False)
             energies_array[j, :] = ens
             wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
         epsilon_pots = np.column_stack((roos, energies_array[:, :4]))
-        npz_filename = os.path.join(self.DVRdir, f"OH_anharmDVR_numpts{self.NumPts}_energies{self.desiredEnergies}.npz")
-        # data saved in wavenumbers/angstroms
-        wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns)
+        npz_filename = os.path.join(self.DVRdir, f"{self.method}_AnharmOHDVR_energies{self.desiredEnergies}.npz")
+        # data saved in wavenumbers/angstroms with potential shifted BACK to OH scan points
+        wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns, pot_array=potential_array)
         np.savez(npz_filename, method="anharm", potential=potential_array, epsilonPots=epsilon_pots,
                  wfns_array=wavefuns_array)
         return npz_filename
@@ -186,58 +191,9 @@ class AdiabaticApprox:
             energies_array[j, :] = ens
             wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
         npz_filename = os.path.join(self.DVRdir,
-                                    f"OODVR_w{OHresults['method']}OHDVR_numpts{self.NumPts}_energies{self.desiredEnergies}.npz")
+                                    f"{self.method}_OODVR_w{OHresults['method']}OHDVR_energies{self.desiredEnergies}.npz")
         # data saved in wavenumbers/angstroms
-        wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns)
+        wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns, pot_array=potential_array)
         np.savez(npz_filename, potential=potential_array, energy_array=energies_array, wfns_array=wavefuns_array)
         return npz_filename
-
-
-class TransitionMoment:
-    def __init__(self, moleculeObj=None, OHDVRnpz=None):
-        self.molecule = moleculeObj
-        if self.molecule is None:
-            raise Exception("No molecule to test")
-        self.method = self.molecule.method
-        self.scanCoords = self.molecule.scanCoords
-        self.OHDVRres = np.load(OHDVRnpz)
-        self._logData = None
-        self._embeddedCoords = None
-
-    @property
-    def logData(self):
-        if self._logData is None:
-            from GaussianHandler import LogInterpreter
-            if self.method == "rigid":
-                optBool = False
-            else:
-                optBool = True
-            self._logData = LogInterpreter(*self.molecule.scanLogs, moleculeObj=self.molecule, optimized=optBool)
-        return self._logData
-
-    @property
-    def embeddedCoords(self):
-        if self._embeddedCoords is None:
-            self._embeddedCoords = self.embed()
-        return self._embeddedCoords
-
-    def embed(self):
-        from Rotator import many_rotations
-        newcoords = many_rotations(self.logData, centralO_atom=1, xAxis_atom=0, xyPlane_atom=None,
-                                   outerO1=5, outerO2=8, inversion_atom=8)
-        return newcoords
-
-    def run_tm(self):
-        """should be pased a sqaure grid of dipoles to embed and interpolate. call to transitionmoment.py
-        and probably some embed.py class or somehing perhaps?"""
-        import transitionmoment as tm
-        from scipy import interpolate
-        roos = self.embeddedCoords[:, 0, 0]
-        dipadedodas = tm.interp_dipoles(self.embeddedCoords, self.OHDVRres)
-        mus = tm.psi_trans(dipadedodas, self.OHDVRres)
-        g = self.OHDVRres["potential"][0]
-        interp_mus = np.zeros((3, len(g)))
-        for i in np.arange(3):
-            tck = interpolate.splrep(roos, mus[i, :], s=0)
-            interp_mus[i, :] = interpolate.splev(g, tck, der=0)
 

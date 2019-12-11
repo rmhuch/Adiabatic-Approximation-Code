@@ -3,9 +3,50 @@ import matplotlib.pyplot as plt
 from Converter import Constants
 
 
+class AnnePlots:
+    def __init__(self, moleculeObj=None, OHDVRnpz=None, **kwargs):
+        self.molecule = moleculeObj
+        if self.molecule is None:
+            raise Exception("No molecule to test")
+        self.OHDVRresults = np.load(OHDVRnpz)
+        self._logData = None
+
+    @property
+    def logData(self):
+        if self._logData is None:
+            from GaussianHandler import LogInterpreter
+            if self.molecule.method == "rigid":
+                optBool = False
+            else:
+                optBool = True
+            self._logData = LogInterpreter(*self.molecule.scanLogs, moleculeObj=self.molecule, optimized=optBool)
+        return self._logData
+
+    def eqOHPlot(self, color="k"):
+        plt.rcParams.update({'font.size': 18})
+        mini_pot = self.logData.minimum_pot()
+        plt.plot(mini_pot[:, 0], mini_pot[:, 1], 'o', c=color,
+                 label=f"{self.molecule.MoleculeName} {self.molecule.method}")
+        plt.plot(mini_pot[:, 0], mini_pot[:, 1], c=color, linewidth=2.5)
+        plt.xlabel('OO bond Distance ($\mathrm{\AA}$)')
+        plt.ylabel('OH equilibrium bond Distance ($\mathrm{\AA}$)')
+        plt.tight_layout()
+
+    def freqOHPlot(self, color="k"):
+        plt.rcParams.update({'font.size': 18})
+        eps = self.OHDVRresults["epsilonPots"]
+        roos = eps[:, 0]
+        energies = eps[:, 2] - eps[:, 1]
+        plt.plot(roos, energies, 'o', c=color,
+                 label=f"{self.molecule.MoleculeName} {self.OHDVRresults['method']} {self.molecule.method}")
+        plt.plot(roos, energies, '-', c=color, linewidth=2.5)
+        plt.xlabel('OO bond Distance ($\mathrm{\AA}$)')
+        plt.ylabel('OH Frequency ($\mathrm{cm^-1}$)')
+        plt.tight_layout()
+
+
 class AAplots:
     def __init__(self, moleculeObj=None, OHDVRnpz=None, OODVRnpz=None, **kwargs):
-        self.params = kwargs
         self.molecule = moleculeObj
         if self.molecule is None:
             raise Exception("No molecule to test")
@@ -34,7 +75,7 @@ class AAplots:
         plt.tight_layout()
         return fig
 
-    def ohWfn_plots(self, wfns2plt=4, **params):
+    def ohWfn_plots(self, wfns2plt=4, **kwargs):
         potz = self.OHDVRresults["potential"]
         wfns = self.OHDVRresults["wfns_array"]
         eps = self.OHDVRresults["epsilonPots"]
@@ -44,6 +85,8 @@ class AAplots:
             plt.rcParams.update({'font.size': 20})
             plt.figure(figsize=(6, 6), dpi=300)
             plt.plot(potz[i, :, 0], potz[i, :, 1], '-k', linewidth=6.0)
+            # minIdx = np.argmin(potz[i, :, 1])
+            # print(f"{j} : min {potz[i, minIdx, 0]}")
             for k in range(wfns2plt):
                 plt.plot(potz[i, :, 0], (wfns[i, :, k] * 5000) + eps[i, (k + 1)], colors[k], linewidth=4.0)
             plt.ylim(0, 25000)
@@ -115,24 +158,82 @@ class AAplots:
 
 
 class TMplots:
-    def __init__(self):
-        pass
+    def __init__(self, moleculeObj=None, OHDVRnpz=None, OODVRnpz=None, **kwargs):
+        self.molecule = moleculeObj
+        if self.molecule is None:
+            raise Exception("No molecule to test")
+
+        self.OHDVRnpz = OHDVRnpz
+        self.OODVRnpz = OODVRnpz
+        self.OODVRres = np.load(OODVRnpz)
+        self._logData = None
+        self.scanGrid = self.molecule.scanGrid
+        self._tmObj = None
+
+    @property
+    def tmObj(self):
+        if self._tmObj is None:
+            from transitionmoment import TransitionMoment
+            self._tmObj = TransitionMoment(moleculeObj=self.molecule, OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
+        return self._tmObj
+
+    def DipoleSurfaces(self, preEmbed=False):
+        """Plots the x,y,z components of the dipole surface."""
+        from McUtils.Plots import GraphicsGrid, ContourPlot
+        dip_struct = self.tmObj.makeDipStruct(preEmbed=preEmbed)
+        roos = dip_struct[:, 0, 0]
+        rohs = dip_struct[0, :, 1]
+        dip_vecs = dip_struct[:, :, 2:]
+        min = np.amin(dip_vecs)
+        max = np.amax(dip_vecs)
+        comp = ['X', 'Y', 'Z']
+        main = GraphicsGrid(ncols=3, nrows=1)
+        main.image_size = (1000, 400)
+        for i, dip in enumerate(dip_vecs.T):
+            opts = dict(
+                plot_style=dict(cmap="plasma", levels=10, vmin=min, vmax=max),
+                figure=main[0, i],
+                axes_labels=['OO bond Distance ($\mathrm{\AA}$)', 'OH bond Distance ($\mathrm{\AA}$)'])
+            main[0, i] = ContourPlot(roos, rohs, dip, **opts)
+            main[0, i].plot_label = f'{comp[i]}-Component of Dipole'
+        main.colorbar = {"graphics": main[0, 0].graphics}
+        # plt.tight_layout()
+        plt.savefig(f"{self.molecule.method}_dipoleplots.png")
 
     def InterpolatedDips(self):
         """will plot dipoles (dots) and interpolation results (lines) for checking"""
-        plt.plot(g, new_dip_vals[k, :, j + 2])
-        plt.plot(rohs, dip_vals, 'o')
-        plt.xlabel('OH bond Distance ($\mathrm{\AA}$)')
-        plt.ylabel('Dipole UNITS')
-        plt.show()
-        plt.close()
+        dip_struct = self.tmObj.makeDipStruct()
+        roos = dip_struct[:, 0, 0]
+        interped_dips = self.tmObj.interp_dipoles()
+        for k, oo in enumerate(roos):
+            for j in np.arange(3):
+                plt.plot(interped_dips[k, :, 1], interped_dips[k, :, j+2])
+                plt.plot(dip_struct[k, :, 1], dip_struct[k, :, j+2], 'o')
+            plt.title(f"Roo = {oo}")
+            plt.xlabel('OH bond Distance ($\mathrm{\AA}$)')
+            plt.ylabel('Dipole UNITS')
+            plt.show()
+            plt.close()
 
-    def TransitionMoments(self):
-        plt.plot(roos, mus[0, :], label="X-Component")
-        plt.plot(roos, mus[1, :], label="Y-Component")
-        plt.plot(roos, mus[2, :], label="Z-Component")
+    def TransitionMoments(self, color=None, ylim=None):
+        if color is None:
+            color = ["blue", "orange", "green"]
+        comp = ["X", "Y", "Z"]
+        for i in range(3):
+            plt.plot(self.tmObj.mus[0][:, 0], self.tmObj.mus[0][:, i+1], "o", label=f"{comp[i]}-Component", color=color[i])
+            plt.plot(self.tmObj.mus[1][:, 0], self.tmObj.mus[1][:, i+1], color=color[i])
+        ooWfns = self.OODVRres["wfns_array"]
+        oopot = self.OODVRres["potential"]
+        wfnAmpIdx = np.argwhere(ooWfns[0, :, 0] > 1E-5)
+        ooWfnAmp = oopot[0, wfnAmpIdx, 0]
+        print(np.min(ooWfnAmp), np.max(ooWfnAmp))
+        plt.axvspan(np.min(ooWfnAmp), np.max(ooWfnAmp), facecolor="#2ca02c", alpha=0.3)
+        # plt.plot(oopot[0, :, 0], ooWfns[0, :, 0], '-k')
+        # plt.plot(oopot[1, :, 0], ooWfns[1, :, 0]+0.5, '-k')
         plt.xlabel("OO distance")
         plt.ylabel("Transition Moment")
-        plt.ylim(-0.75, 0.25)
+        if ylim is not None:
+            plt.ylim(*ylim)
         plt.legend()
-        plt.show()
+        # plt.show()
+
