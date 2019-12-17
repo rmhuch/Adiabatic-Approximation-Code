@@ -120,12 +120,13 @@ class AAplots:
 
     def make_adiabatplots(self):
         from scipy import interpolate, optimize
+        import os
         mini_pot = self.logData.minimum_pot()
         eps = self.OHDVRresults["epsilonPots"]
         oo_energies = self.OODVRresults["energy_array"]
         fig = plt.figure(figsize=(6, 6), dpi=300)
         plt.rcParams.update({'font.size': 20})
-        grid = self.OODVRresults["potential"][0]
+        grid = self.OODVRresults["potential"][0][:, 0]
         # plot electronic energy
         E = Constants.convert(mini_pot[:, 2], "wavenumbers", to_AU=False).T
         roos = mini_pot[:, 0]
@@ -134,26 +135,30 @@ class AAplots:
         plt.plot(grid, E_fit, '-k', linewidth=6.0)
         # plot epsilon curves and energy levels
         colors = ["royalblue", "crimson"]
+        minOH = np.zeros(2)
         for i in range(2):  # plot curves
             pot = eps[:, i+1]
             en_level = oo_energies[i, :]
-            print(f"Energy diff (OH={i}): ", en_level[1]-en_level[0])
+            print(f"{self.OHDVRresults['method']} Frequency OO(OH={i}): ", en_level[1]-en_level[0])
+            print(f"{self.OHDVRresults['method']} Ground State(OH={i}): ", en_level[0])
             tck = interpolate.splrep(eps[:, 0], pot, s=0)
             pot_fit = interpolate.splev(grid, tck, der=0)
+            minOH[i] = np.min(pot_fit)
             plt.plot(grid, pot_fit, colors[i], linewidth=6.0)
             for j in range(2):  # plot levels
                 # -- if levels aren't plotting check xl and ar and make sure they are making actual vectors.
-                # xl = optimize.root(lambda x: interpolate.splev(x, tck, der=0) - en_level[j], grid[0], method="lm").x
+                xl = optimize.root(lambda x: interpolate.splev(x, tck, der=0) - en_level[j], grid[0], method="lm").x
                 xr = optimize.root(lambda x: interpolate.splev(x, tck, der=0) - en_level[j], grid[-1], method="lm").x
-                enl_x = np.linspace(xr[0], xr[-1], 10)
+                enl_x = np.linspace(xr[0], xl[0], 10)
                 E = [en_level[j]] * len(enl_x)
                 plt.plot(enl_x, E, colors[i], linewidth=4.0)
-
+        print(f"{self.OHDVRresults['method']} Frequency OH: ", minOH[1] - minOH[0])
         plt.title(f"{self.molecule.method} {self.OHDVRresults['method']} OH")
         plt.ylim(0, 8000)
         plt.xlim(2, 4)
         plt.tight_layout()
-        plt.savefig(f"{self.molecule.method}_adiabatplot_{self.OHDVRresults['method']}OH.png")
+        figDir = os.path.join(self.molecule.mol_dir, "figures")
+        plt.savefig(os.path.join(figDir, f"{self.molecule.method}_adiabatplot_{self.OHDVRresults['method']}OH.png"))
         plt.close()
 
 
@@ -168,14 +173,16 @@ class TMplots:
         self.OODVRres = np.load(OODVRnpz)
         self._logData = None
         self.scanGrid = self.molecule.scanGrid
-        self._tmObj = None
-
-    @property
-    def tmObj(self):
-        if self._tmObj is None:
-            from transitionmoment import TransitionMoment
-            self._tmObj = TransitionMoment(moleculeObj=self.molecule, OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
-        return self._tmObj
+        from transitionmoment import TransitionMoment
+        self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D", OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
+    #
+    # @property
+    # def tmObj(self):
+    #     if self._tmObj is None:
+    #         from transitionmoment import TransitionMoment
+    #         self._tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D",
+    #                                        OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
+    #     return self._tmObj
 
     def DipoleSurfaces(self, preEmbed=False):
         """Plots the x,y,z components of the dipole surface."""
@@ -199,6 +206,7 @@ class TMplots:
         main.colorbar = {"graphics": main[0, 0].graphics}
         # plt.tight_layout()
         plt.savefig(f"{self.molecule.method}_dipoleplots.png")
+        plt.close()
 
     def InterpolatedDips(self):
         """will plot dipoles (dots) and interpolation results (lines) for checking"""

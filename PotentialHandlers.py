@@ -34,9 +34,8 @@ class Potentials2D:
             return pvs.flatten()
         return pf
 
-    def exterp2d(self, data_points):
-        """TODO: fix import??? make this better
-        creates a normal grid if input data is not then it extrapolates to input grid using the
+    def exterp2d(self, data_points, vals):
+        """creates a normal grid if input data is not then it extrapolates to input grid using the
             last value on either end.
 
         :param data_points:
@@ -45,16 +44,15 @@ class Potentials2D:
         :rtype:
         """
         from scipy import interpolate
-        from McUtils.Zachary import Interpolator
-        # grd = Interpolator.regular_grid(data_points)
         xx = np.unique(data_points[:, 0])
         yy = np.unique(data_points[:, 1])
-        extrap_func = interpolate.interp2d(xx, yy, data_points[:, 2], kind='cubic', fill_value=None)
+        values = vals.reshape(len(xx), len(yy))
+        extrap_func = interpolate.interp2d(xx, yy, values, kind='cubic', fill_value=None)
 
         def pf(grid, extrap=extrap_func):
             x = np.unique(grid[:, 0])
             y = np.unique(grid[:, 1])
-            pvs = extrap(x, y).T
+            pvs = extrap(x, y)
             return pvs.flatten()
         return pf
 

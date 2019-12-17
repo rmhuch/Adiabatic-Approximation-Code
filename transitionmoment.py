@@ -2,18 +2,24 @@ import numpy as np
 
 
 class TransitionMoment:
-    def __init__(self, moleculeObj=None, OHDVRnpz=None, OODVRnpz=None, **kwargs):
+    def __init__(self, moleculeObj=None, dimension=None, OHDVRnpz=None, OODVRnpz=None, TwoDnpz=None, **kwargs):
         self.molecule = moleculeObj
         if self.molecule is None:
             raise Exception("No molecule to test")
         self.method = self.molecule.method
         self.scanCoords = self.molecule.scanCoords
-        self.OHDVRres = np.load(OHDVRnpz)
-        self.OODVRres = np.load(OODVRnpz)
         self._logData = None
         self._embeddedCoords = None
         self._embeddedDips = None
-        self._mus = None
+        if dimension == "1D":
+            self.OHDVRres = np.load(OHDVRnpz)
+            self.OODVRres = np.load(OODVRnpz)
+            self._mus = None
+        elif dimension == "2D":
+            self.TwoDres = np.load(TwoDnpz)
+            self._TwoDDips = None
+        else:
+            raise Exception("No TM dimensionality specified")
 
     @property
     def logData(self):
@@ -29,8 +35,7 @@ class TransitionMoment:
     @property
     def embeddedCoords(self):
         import os
-        npcoordname = os.path.join(self.molecule.mol_dir, "DVR Results",
-                                   f"{self.method}_{self.OHDVRres['method']}OH_embeddedCoords.npy")
+        npcoordname = os.path.join(self.molecule.mol_dir, "DVR Results", f"{self.method}_embeddedCoords.npy")
         if self._embeddedCoords is None:
             if os.path.exists(npcoordname):
                 self._embeddedCoords = np.load(npcoordname)
@@ -42,8 +47,7 @@ class TransitionMoment:
     @property
     def embeddedDips(self):
         import os
-        npfilename = os.path.join(self.molecule.mol_dir, "DVR Results",
-                                  f"{self.method}_{self.OHDVRres['method']}OH_embeddedDipoles.npy")
+        npfilename = os.path.join(self.molecule.mol_dir, "DVR Results", f"{self.method}_embeddedDipoles.npy")
         if self._embeddedDips is None:
             if os.path.exists(npfilename):
                 self._embeddedDips = np.load(npfilename)
@@ -57,6 +61,12 @@ class TransitionMoment:
         if self._mus is None:
             self._mus = self.run_tm()
         return self._mus
+
+    @property
+    def TwoDDips(self):
+        if self._TwoDDips is not None:
+            self._TwoDDips = self.interp_2D_dipoles()
+        return self._TwoDDips
 
     def embed(self):
         from MolecularSys import MolecularOperations
@@ -83,7 +93,7 @@ class TransitionMoment:
     
     def makeDipStruct(self, preEmbed=False):
         from McUtils.Zachary.Interpolator import Interpolator
-        ignore_func = lambda:"ignore"
+        ignore_func = lambda: "ignore"
         scangrid = np.array(list(self.logData.dipoles.keys()))
         if preEmbed:
             dip_vecs = np.array(list(self.logData.dipoles.values()))
@@ -108,12 +118,30 @@ class TransitionMoment:
 
     def savestructs(self):
         import os
-        npfilename = os.path.join(self.molecule.mol_dir, "DVR Results",
-                                  f"{self.method}_{self.OHDVRres['method']}OH_embeddedDipoles.npy")
-        npcoordname = os.path.join(self.molecule.mol_dir, "DVR Results",
-                                   f"{self.method}_{self.OHDVRres['method']}OH_embeddedCoords.npy")
+        npfilename = os.path.join(self.molecule.mol_dir, "DVR Results", f"{self.method}_embeddedDipoles.npy")
+        npcoordname = os.path.join(self.molecule.mol_dir, "DVR Results", f"{self.method}_embeddedCoords.npy")
         np.save(npfilename, self.embeddedDips)
         np.save(npcoordname, self.embeddedCoords)
+
+    def interp_2D_dipoles(self):
+        from PotentialHandlers import Potentials2D
+        from functools import reduce
+        from operator import mul
+        val = self.makeDipStruct()
+        rohs = val[0, :, 1]
+        roos = val[:, 0, 0]
+        dip_vecs = val[:, :, 2:]
+        dip_vecs = np.reshape(dip_vecs, (dip_vecs.shape[0]*dip_vecs.shape[1], 3))
+        bigGrid = self.TwoDres["grid"][0]
+        npts = reduce(mul, bigGrid.shape[:-1], 1)
+        grid = np.reshape(bigGrid, (npts, bigGrid.shape[-1]))
+        new_dips = np.zeros((npts, 3))
+        for j in np.arange(3):
+            extrap_funct = Potentials2D().exterp2d(np.column_stack((roos, rohs)), dip_vecs[:, j])
+            new_dips[:, j] = extrap_funct(grid)
+            # from McUtils.Plots import ListContourPlot
+            # ListContourPlot(np.column_stack((grid, new_dips[:, j]))).show()
+        return new_dips
 
     def interp_dipoles(self):
         from scipy import interpolate
@@ -132,7 +160,8 @@ class TransitionMoment:
                 # mids = roo/2 - val[i, :, 1]
                 # mids *= -1
                 # tck = interpolate.splrep(rohs, dip_vals, s=0)
-                f = interpolate.interp1d(rohs, dip_vals, kind="cubic", fill_value=(dip_vals[0], dip_vals[-1]), bounds_error=False)
+                f = interpolate.interp1d(rohs, dip_vals,
+                                         kind="cubic", fill_value=(dip_vals[0], dip_vals[-1]), bounds_error=False)
                 new_dip_vals[i, :, 0] = np.repeat(val[i, 0, 0], len(potz[i, wfnAmpIdx, 0]))
                 new_dip_vals[i, :, 1] = potz[i, wfnAmpIdx, 0].T
                 # new_dip_vals[i, :, j+2] = interpolate.splev(potz[i, wfnAmpIdx, 0].T, tck, der=0)

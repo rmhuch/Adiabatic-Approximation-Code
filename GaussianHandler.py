@@ -56,10 +56,12 @@ class LogInterpreter:
         return self._dipoles
 
     def get_electronic_energy(self, shift=True, optimized=None, **params):
-        """Pulls Energies from the "Summary" portion of a log file. Also shifts the potential energy to0 to avoid
-         problems with DVR later.
+        """Pulls Energies from the "Summary" portion of a log file. Shifts the potential energy to 0 to avoid
+         problems with DVR later and extrapolates to a regular sized rudy grid to avoid problems with
+         interpolation /sizing/ etc.
         :return: an array (col0: scancoord_1(ang), col1: scancoord_2(ang), col2: energy(shifted hartrees))
         :rtype: np.ndarray """
+        from McUtils.Zachary.Interpolator import Interpolator
         ens = []
         if optimized is None:
             raise Exception("No energy type specified.")
@@ -85,7 +87,10 @@ class LogInterpreter:
         out = energy[row_mask]
         if shift:
             out[:, 2:] -= min(out[:, 2:])  # shift gaussian numbers to zero HERE to avoid headaches later.
-        return out
+        square_grid, square_vals = Interpolator(out[:, :2], out[:, 2], interpolation_function=lambda: "ignore")\
+            .regular_grid(interp_kind='cubic', fillvalues=False)
+        energyArray = np.column_stack((square_grid, square_vals))
+        return energyArray
 
     def get_finitedata(self):
         """Should be able to pull energies from FD Scan log files and create a dictionary..
@@ -222,29 +227,10 @@ class LogInterpreter:
         rnge = sorted(slices[idx][:, 1])
         cuts = OrderedDict()
         for slICE in slices:
-            if len(slICE) < maxx:
-                xx = np.repeat(slICE[0, 0], maxx)
-                g = rnge
-                if fillvalues:
-                    f = interpolate.interp1d(slICE[:, 1], slICE[:, 2], kind=interp_kind,
-                                             fill_value=(slICE[0, 2], slICE[-1, 2]), bounds_error=False)
-                else:
-                    f = interpolate.interp1d(slICE[:, 1], slICE[:, 2], kind=interp_kind,
-                                             fill_value='extrapolate', bounds_error=False)
-                y_fit = f(g)
-                if plot:
-                    plt.plot(g, y_fit, 'o')
-                    plt.show()
-                pice = np.column_stack((g, y_fit))
-                if midpoint:
-                    pice[:, 0] = (xx[0]/2) - pice[:, 0]
-                    pice[:, 0] *= -1
-                cuts[xx[0]] = pice
-            else:
-                if midpoint:
-                    slICE[:, 1] = (slICE[0, 0]/2) - slICE[:, 1]
-                    slICE[:, 1] *= -1
-                cuts[slICE[0, 0]] = slICE[:, 1:]
+            if midpoint:
+                slICE[:, 1] = (slICE[0, 0]/2) - slICE[:, 1]
+                slICE[:, 1] *= -1
+            cuts[slICE[0, 0]] = slICE[:, 1:]
         return cuts
 
     def finite_dict(self, midpoint=False):
