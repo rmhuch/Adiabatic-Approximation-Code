@@ -1,6 +1,4 @@
 from Converter import Constants
-import os
-import numpy as np
 from PyDVR.DVR import *
 
 
@@ -47,10 +45,12 @@ class AdiabaticApprox:
         mH = Constants.mass("H", to_AU=True)
         mD = Constants.mass("D", to_AU=True)
         massdict = dict()
-        muOH = ((2 * mO) * mH) / ((2 * mO) + mH)
+        muOOH = ((2 * mO) * mH) / ((2 * mO) + mH)
+        massdict["muOOH"] = muOOH
+        muOOD = ((2 * mO) * mD) / ((2 * mO) + mD)
+        massdict["muOOD"] = muOOD
+        muOH = 1/(1/mO + 1/mH)
         massdict["muOH"] = muOH
-        muOD = ((2 * mO) * mD) / ((2 * mO) + mD)
-        massdict["muOD"] = muOD
         muOO = mO / 2
         massdict["muOO"] = muOO
         return massdict
@@ -110,7 +110,7 @@ class AdiabaticApprox:
             k = finite_difference(sx, y, 2, end_point_precision=0, stencil=5, only_center=True)[0]
             mini = min(sx) - 1.0
             maxi = max(sx) + 1.0
-            res = dvr_1D.run(potential_function="harmonic_oscillator", k=k, mass=self.massdict["muOH"],
+            res = dvr_1D.run(potential_function="harmonic_oscillator", k=k, mass=self.massdict["muOOH"],
                              divs=self.NumPts, domain=(mini, maxi), num_wfns=self.desiredEnergies)
             potential = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
             grid = Constants.convert((res.grid + x[min_idx]), "angstroms", to_AU=False)
@@ -131,6 +131,7 @@ class AdiabaticApprox:
     def run_anharOH_DVR(self, plotPhasedWfns=None):
         """ Runs anharmonic DVR over the OH coordinate at every OO value."""
         from PotentialHandlers import Potentials1D
+        import matplotlib.pyplot as plt
         dvr_1D = DVR("ColbertMiller1D")
         cut_dict = self.logData.cut_dictionary(midpoint=True)
         roos = np.array(list(cut_dict.keys()))
@@ -143,7 +144,7 @@ class AdiabaticApprox:
             mini = min(x) - 0.3
             maxi = max(x) + 0.3
             en = cut_dict[n][:, 1]
-            res = dvr_1D.run(potential_function=Potentials1D().potlint(x, en), mass=self.massdict["muOH"],
+            res = dvr_1D.run(potential_function=Potentials1D().potlint(x, en), mass=self.massdict["muOOH"],
                              divs=self.NumPts, domain=(mini, maxi), num_wfns=self.desiredEnergies)
             potential = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
             grid = Constants.convert(res.grid, "angstroms", to_AU=False)
@@ -192,22 +193,19 @@ class AdiabaticApprox:
 
     def run_2D_DVR(self):
         """Runs 2D DVR over the original 2D potential"""
-        from PotentialHandlers import Potentials2D
         dvr_2D = DVR("ColbertMillerND")
         npz_filename = os.path.join(self.DVRdir, f"{self.method}_2D_DVR.npz")
-        twoD_grid = self.logData.energies
-        grid = Constants.convert(twoD_grid[:, :2], "angstroms", to_AU=True)
-        res = dvr_2D.run(potential_function=Potentials2D().exterp2d(grid, twoD_grid[:, 2]),
-                         divs=(25, 25), mass=[self.massdict["muOO"], self.massdict["muOH"]], num_wfns=15,
-                         domain=((min(grid[:, 0])-0.3,  max(grid[:, 0])+0.03), (min(grid[:, 1])-0.3, max(grid[:, 1]+0.03))),
+        twoD_grid = self.logData.rawenergies
+        xy = Constants.convert(twoD_grid[:, :2], "angstroms", to_AU=True)
+        res = dvr_2D.run(potential_grid=np.column_stack((xy, twoD_grid[:, 2])),
+                         divs=(100, 100), mass=[self.massdict["muOO"], self.massdict["muOH"]], num_wfns=15,
+                         domain=((min(xy[:, 0]),  max(xy[:, 0])), (min(xy[:, 1]), max(xy[:, 1]))),
                          results_class=ResultsInterpreter)
+
         dvr_grid = Constants.convert(res.grid, "angstroms", to_AU=False)
         dvr_pot = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
         all_ens = Constants.convert(res.wavefunctions.energies, "wavenumbers", to_AU=False)
-        # from McUtils.Plots import ContourPlot
-        # res.plot_potential(plot_class=ContourPlot).show()
         ResultsInterpreter.wfn_contours(res)
-        # gsWfn = int(input("Ground State Wavefunction Index: "))
         oh1oo0 = int(input("OH=1 OO=0 Wavefunction Index: "))
         oh1oo1 = int(input("OH=1 OO=1 Wavefunction Index: "))
         oh1oo2 = int(input("OH=1 OO=2 Wavefunction Index: "))
@@ -230,7 +228,6 @@ class AdiabaticApprox:
             else:
                 pass
         # data saved in wavenumbers/angstroms
-
         np.savez(npz_filename, grid=[dvr_grid], potential=[dvr_pot], vrwfn_idx=[0, oh1oo0, oh1oo1, oh1oo2],
                  energy_array=ens, wfns_array=wfns)
         return npz_filename

@@ -26,7 +26,7 @@ ProtTri = Molecule(MoleculeName="H7O3pls",
                    embed_dict={"centralO_atom": 1,
                                "xAxis_atom": 0,
                                "xyPlane_atom": 5,
-                               "inversion_atom": 8})  # check inversion atom!!
+                               "inversion_atom": 9})
 
 
 ProtDi = Molecule(MoleculeName="H5O2pls",
@@ -62,7 +62,7 @@ ProtTriR = Molecule(MoleculeName="H7O3pls",
                     embed_dict={"centralO_atom": 1,
                                 "xAxis_atom": 0,
                                 "xyPlane_atom": 5,
-                                "inversion_atom": 8})  # check inversion atom!!
+                                "inversion_atom": 9})
 
 ProtDiR = Molecule(MoleculeName="H5O2pls",
                    atom_str=["O", "O", "H", "D", "D", "D", "D"],

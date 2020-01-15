@@ -65,6 +65,22 @@ class AAplots:
             self._logData = LogInterpreter(*self.molecule.scanLogs, moleculeObj=self.molecule, optimized=optBool)
         return self._logData
 
+    def make_scan_plots(self, grid=False, contour=True):
+        fig = plt.figure()
+        if grid:
+            pts = np.array(list(self.logData.cartesians.keys()))
+            plt.plot(pts[:, 0], pts[:, 1], 'ok', markersize=1.5)
+            # plt.close()
+        if contour:
+            pts = self.logData.rawenergies
+            pot = pts[:, 2]
+            potwv = Constants.convert(pot, "wavenumbers", to_AU=False)
+            potwv[potwv > 24000] = 24000
+            plt.tricontourf(pts[:, 0], pts[:, 1], potwv, cmap='Purples_r', levels=8)
+            plt.colorbar()
+            plt.tricontour(pts[:, 0], pts[:, 1], potwv, colors='k', levels=8)
+            # plt.close()
+
     @staticmethod
     def wfn_plots(i, potz, wfns2plt, wfns, ens, colors):
         plt.rcParams.update({'font.size': 20})
@@ -84,7 +100,10 @@ class AAplots:
         for i, j in enumerate(roos):
             plt.rcParams.update({'font.size': 20})
             plt.figure(figsize=(6, 6), dpi=300)
-            plt.plot(potz[i, :, 0], potz[i, :, 1], '-k', linewidth=6.0)
+            if self.OHDVRresults["method"] == "harm":
+                plt.plot(potz[i, :, 0], potz[i, :, 1], '-m', linewidth=6.0)
+            else:
+                plt.plot(potz[i, :, 0], potz[i, :, 1], '-k', linewidth=6.0)
             # minIdx = np.argmin(potz[i, :, 1])
             # print(f"{j} : min {potz[i, minIdx, 0]}")
             for k in range(wfns2plt):
@@ -135,7 +154,6 @@ class AAplots:
         plt.plot(grid, E_fit, '-k', linewidth=6.0)
         # plot epsilon curves and energy levels
         colors = ["royalblue", "crimson"]
-        minOH = np.zeros(2)
         for i in range(2):  # plot curves
             pot = eps[:, i+1]
             en_level = oo_energies[i, :]
@@ -143,7 +161,6 @@ class AAplots:
             print(f"{self.OHDVRresults['method']} Ground State(OH={i}): ", en_level[0])
             tck = interpolate.splrep(eps[:, 0], pot, s=0)
             pot_fit = interpolate.splev(grid, tck, der=0)
-            minOH[i] = np.min(pot_fit)
             plt.plot(grid, pot_fit, colors[i], linewidth=6.0)
             for j in range(2):  # plot levels
                 # -- if levels aren't plotting check xl and ar and make sure they are making actual vectors.
@@ -152,13 +169,13 @@ class AAplots:
                 enl_x = np.linspace(xr[0], xl[0], 10)
                 E = [en_level[j]] * len(enl_x)
                 plt.plot(enl_x, E, colors[i], linewidth=4.0)
-        print(f"{self.OHDVRresults['method']} Frequency OH: ", minOH[1] - minOH[0])
+        print(f"{self.OHDVRresults['method']} Frequency OH: ", oo_energies[1, 0] - oo_energies[0, 0])
         plt.title(f"{self.molecule.method} {self.OHDVRresults['method']} OH")
         plt.ylim(0, 8000)
         plt.xlim(2, 4)
         plt.tight_layout()
         figDir = os.path.join(self.molecule.mol_dir, "figures")
-        plt.savefig(os.path.join(figDir, f"{self.molecule.method}_adiabatplot_{self.OHDVRresults['method']}OH.png"))
+        plt.savefig(os.path.join(figDir, f"{self.molecule.method}_adiabatplot_{self.OHDVRresults['method']}OH_manualshift.png"))
         plt.close()
 
 
@@ -172,17 +189,15 @@ class TMplots:
         self.OODVRnpz = OODVRnpz
         self.OODVRres = np.load(OODVRnpz)
         self._logData = None
-        self.scanGrid = self.molecule.scanGrid
-        from transitionmoment import TransitionMoment
-        self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D", OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
-    #
-    # @property
-    # def tmObj(self):
-    #     if self._tmObj is None:
-    #         from transitionmoment import TransitionMoment
-    #         self._tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D",
-    #                                        OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
-    #     return self._tmObj
+        self._tmObj = None
+
+    @property
+    def tmObj(self):
+        if self._tmObj is None:
+            from transitionmoment import TransitionMoment
+            self._tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D",
+                                           OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
+        return self._tmObj
 
     def DipoleSurfaces(self, preEmbed=False):
         """Plots the x,y,z components of the dipole surface."""

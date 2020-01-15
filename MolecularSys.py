@@ -3,7 +3,8 @@ import os
 
 
 class Molecule:
-    def __init__(self, MoleculeName=None, atom_str=None, method=None, scanCoords=None, embed_dict=None, **kwargs):
+    def __init__(self, MoleculeName=None, atom_str=None, method=None, dimension=None,
+                 scanCoords=None, embed_dict=None, **kwargs):
         self.MoleculeName = MoleculeName
         if MoleculeName is None:
             raise Exception("No Molecule to build.")
@@ -12,11 +13,12 @@ class Molecule:
         self.method = method
         if method is None: 
             raise Exception("No method defined.")
+        self.dimension = dimension
         self.scanCoords = scanCoords
         self.embed_dict = embed_dict
         self._mol_dir = None
         self._scanLogs = None
-        self._scanGrid = None
+        self._scanValDict = None
         self._massArray = None
 
     @property
@@ -32,10 +34,13 @@ class Molecule:
         return self._scanLogs
 
     @property
-    def scanGrid(self):
-        if self._scanGrid is None:
-            self._scanGrid = self.getGrid()
-        return self._scanGrid
+    def scanValDict(self):
+        if self._scanValDict is None:
+            full_grid, sc1, sc2 = self.getGrid()
+            self._scanValDict = {"fullGrid": full_grid,
+                                 "scanCoord1": sc1,
+                                 "scanCoord2": sc2}
+        return self._scanValDict
 
     @property
     def massArray(self):
@@ -52,7 +57,10 @@ class Molecule:
     def get_2Dlogs(self):
         """For given method, pulls log files from udrive file system."""
         import glob
-        scan_dir = os.path.join(self.mol_dir, "2D Scans", "logs")
+        if self.dimension == "2D":
+            scan_dir = os.path.join(self.mol_dir, "2D Scans XH")
+        else:
+            scan_dir = os.path.join(self.mol_dir, "2D Scans OH")
         if self.method == "rigid":
             allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*rigid*.log"))))
         elif self.method == "partrig":
@@ -74,9 +82,11 @@ class Molecule:
             optBool = True
         logData = LogInterpreter(*self.scanLogs, moleculeObj=self, optimized=optBool)
         full_grid = np.array(list(logData.cartesians.keys()))
+        # idx = np.lexsort((full_grid[:, 1], full_grid[:, 0]))
+        # full_grid = full_grid[idx]
         sc1 = np.sort(np.unique(full_grid[:, 0]))
         sc2 = np.sort(np.unique(full_grid[:, 1]))
-        return sc1, sc2
+        return full_grid, sc1, sc2
 
     def getMass(self):
         """Uses self.atom_str and Converter.py to create a mass array based off of the molecule. """
@@ -119,15 +129,13 @@ class MolecularOperations:
     @property
     def embeddedCoords(self):
         if self._embeddedCoords is None:
-            self._embeddedCoords, self._embeddedDips = \
-                self.many_rotations(**self.embed_dict)
+            self._embeddedCoords, self._embeddedDips = self.many_rotations(**self.embed_dict)
         return self._embeddedCoords
 
     @property
     def embeddedDips(self):
         if self._embeddedDips is None:
-            self._embeddedCoords, self._embeddedDips = \
-                self.many_rotations(**self.embed_dict)
+            self._embeddedCoords, self._embeddedDips = self.many_rotations(**self.embed_dict)
         return self._embeddedDips
 
     @staticmethod
@@ -137,7 +145,7 @@ class MolecularOperations:
         diffs = np.diff(ps, axis=1)
         diffs = diffs.reshape((len(diffs), 3))
         dists = np.linalg.norm(diffs, axis=1)
-        dists = np.around(dists, 9)
+        dists = np.around(dists, 5)
         return dists 
 
     @staticmethod
@@ -228,28 +236,56 @@ class MolecularOperations:
         return x_coord, x_dip
 
     @staticmethod
-    def inverter(coords, dips, inversion_atom):
-        if inversion_atom is None:
-            raise Exception("No inversion atom defined")
-        coords[:, :, -1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
-        dips[:, :, -1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
+    def inverter(coords, dips, inversion_atom, inversion_axis):
+        """ check all of this.... I don't think it is logical.. hopefully with new scans this won't even be a problem"""
+        if inversion_axis is "X":
+            coords[:, :, 0] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
+            dips[:, :, 0] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
+        elif inversion_axis is "Y":
+            coords[:, :, 1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
+            dips[:, :, 1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
+        else:
+            coords[:, :, -1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
+            dips[:, :, -1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
         return coords, dips
 
-    def many_rotations(self, centralO_atom, xAxis_atom, xyPlane_atom,
-                       outerO1, outerO2, inversion_atom, **params):
+    def many_rotations(self, centralO_atom=None, xAxis_atom=None, xyPlane_atom=None,
+                       outerO1=None, outerO2=None, inversion_atom=None, inversion_axis=None, **params):
         from Converter import Constants
         all_coords = Constants.convert(self.coords, "angstroms", to_AU=True)
+        # if self.method == "relax":
         dop = self.logData.dipoles
         all_dips = np.array(list(dop.values()))
         all_dips = all_dips.reshape(len(all_coords), 1, 3)
+        # else:
+        #     file = os.path.join(self.molecule.mol_dir, "2D Scans", "2Dtet_rigid_rawdipoles.dat")
+        #     all_dips = np.loadtxt(file)
         if centralO_atom is None:
             raise Exception("No origin atom defined")
         # shift to origin
         o_coords = all_coords - all_coords[:, np.newaxis, centralO_atom]
         o_dips = all_dips - all_coords[:, np.newaxis, centralO_atom]
-        r1_coords, r1_dips = self.rot1(o_coords, o_dips, xAxis_atom)  # rotation to x-axis
-        r2_coords, r2_dips = self.rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)  # rotation to xy-plane
-        rot_coords, rot_dips = self.inverter(r2_coords, r2_dips, inversion_atom)  # inversion of designated atom
-        dipadedodas = rot_dips.reshape(len(all_coords), 3)
-        # self.get_xyz(f"{self.molecule.MoleculeName}_{self.molecule.method}_rotcoords.xyz", rot_coords, self.atom_str)
+        # rotation to x-axis
+        r1_coords, r1_dips = self.rot1(o_coords, o_dips, xAxis_atom)
+        if xyPlane_atom is None and inversion_atom is None:
+            # returns coords rotated to x-axis
+            rot_coords = r1_coords
+            dipadedodas = r1_dips.reshape(len(all_coords), 3)
+        elif xyPlane_atom or outerO1 is None and isinstance(inversion_atom, int):
+            # returns coords rotated to x-axis and inverted about a designated atom
+            # inversion_axis = "Z" if inversion_axis is None else inversion_axis
+            rot_coords, rot_dips = self.inverter(r1_coords, r1_dips, inversion_atom, inversion_axis)  # inversion of designated atom
+            dipadedodas = rot_dips.reshape(len(all_coords), 3)
+        elif inversion_atom is None:
+            # returns coords rotated to xyplane
+            r2_coords, r2_dips = self.rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)  # rotation to xy-plane
+            rot_coords = r2_coords
+            dipadedodas = r2_dips.reshape(len(all_coords), 3)
+        else:
+            # returns coords rotated to xyplane and inverted about a designated atom
+            r2_coords, r2_dips = self.rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)  # rotation to xy-plane
+            # inversion_axis = "Z" if inversion_axis is None else inversion_axis
+            rot_coords, rot_dips = self.inverter(r2_coords, r2_dips, inversion_atom, inversion_axis)  # inversion of designated atom
+            dipadedodas = rot_dips.reshape(len(all_coords), 3)
+        self.get_xyz(f"{self.molecule.MoleculeName}_{self.molecule.method}_rotcoords.xyz", rot_coords, self.atom_str)
         return rot_coords, dipadedodas

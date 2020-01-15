@@ -42,9 +42,9 @@ class Spectrum:
             self._intensities = self.gettingIntense()
         return self._intensities
 
-    def find_FancyF(self, woo, woh):
+    def find_FancyF(self, woo=None, woh=None):
+        import os
         from Converter import Constants
-        from MolecularSys import MolecularOperations
         from McUtils.Zachary import finite_difference
         mO = Constants.mass("O", to_AU=True)
         mH = Constants.mass("H", to_AU=True)
@@ -52,22 +52,34 @@ class Spectrum:
         muOO = mO / 2
         freqoh = Constants.convert(woh, "wavenumbers", to_AU=True)
         muOH = ((2 * mO) * mH) / ((2 * mO) + mH)
-        molecularOpsObj = MolecularOperations(moleculeObj=self.molecule)
-        finite_dict = molecularOpsObj.logData.finite_dict()
-        roos = np.array(list(finite_dict.keys()))
-        secondDerivs = np.zeros(len(roos))
-        for j, n in enumerate(roos):
-            x = Constants.convert(finite_dict[n][:, 0], "angstroms", to_AU=True)
-            y = finite_dict[n][:, 1]
-            secondDerivs[j] = finite_difference(x, y, 2, end_point_precision=0, stencil=5, only_center=True)[0]
-        eq_idx = 5  # watch this.. think of better way to encode but for now this works (tet, tri)
-        Qoo = np.sqrt(1/(muOO*freqoo))
-        Qoh = 1/(muOH*freqoh)
-        fancyF = Qoh * ((secondDerivs[eq_idx + 1] - secondDerivs[eq_idx - 1])/(2 * (roos[eq_idx] - roos[eq_idx - 1]))) * Qoo
+        FD_file = os.path.join(self.molecule.mol_dir, 'Finite Scan Data', "newRigid_2D_finiteData.dat")
+        finite_vals = np.loadtxt(FD_file)  # Energy OO OH
+        finite_vals[:, 0] *= 2
+        finite_vals[:, :2] = Constants.convert(finite_vals[:, :2], "angstroms", to_AU=True)  # convert to bohr for math
+        idx = np.lexsort((finite_vals[:, 0], finite_vals[:, 1]))  # resort so same oh different oo
+        finite_vals = finite_vals[idx]
+        finite_vals = finite_vals.reshape((5, 5, 3))
+        FR = np.zeros(5)
+        # compute first derivative wrt oo FR
+        for j in range(5):
+            x = finite_vals[j, :, 0]  # roos
+            y = finite_vals[j, :, 2]  # energies
+            FR[j] = finite_difference(x, y, 1, end_point_precision=0, stencil=5, only_center=True)[0]
+        print(f"FR: {FR}")
+        # compute mixed derivative FrrR
+        FrrR = finite_difference(finite_vals[:, 1, 1], FR, 2, end_point_precision=0, stencil=5, only_center=True)[0]
+        print(f"FrrR: {FrrR}")
+        Qoo = np.sqrt(1/muOO/freqoo)
+        Qoh = np.sqrt(1/muOH/freqoh)
+        fancyF = FrrR * Qoh**2 * Qoo
         return Constants.convert(fancyF, "wavenumbers", to_AU=False)
 
-    def cubicharmonic(self, woo, woh, gsEoh=0, color=None):
-        fancyF = self.find_FancyF(woo=woo, woh=woh)
+    def cubicharmonic(self, woo, woh, fancyF=None, gsEoh=0, color=None, label=""):
+        if fancyF is None:
+            fancyF = self.find_FancyF(woo=woo, woh=woh)
+            print(fancyF)
+        else:
+            fancyF = fancyF
         deltaQ = fancyF / (2*woo)
         intensities = np.zeros(3)
         energies = np.zeros(3)
@@ -86,7 +98,7 @@ class Spectrum:
         plt.rcParams.update({'font.size': 16})
         markerline, stemline, baseline = plt.stem(frequencies, norm_intents,
                                                   linefmt=color, markerfmt=' ', use_line_collection=True,
-                                                  label=f"{self.molecule.method} Cubic Harmonic")
+                                                  label=f"Cubic Harmonic {label}")
         plt.setp(stemline, 'linewidth', 6.0)
         plt.setp(baseline, visible=False)
         plt.ylim(0, 1)

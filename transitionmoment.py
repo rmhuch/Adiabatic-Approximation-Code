@@ -124,23 +124,37 @@ class TransitionMoment:
         np.save(npcoordname, self.embeddedCoords)
 
     def interp_2D_dipoles(self):
-        from PotentialHandlers import Potentials2D
+        import os
         from functools import reduce
         from operator import mul
-        val = self.makeDipStruct()
-        rohs = val[0, :, 1]
-        roos = val[:, 0, 0]
-        dip_vecs = val[:, :, 2:]
-        dip_vecs = np.reshape(dip_vecs, (dip_vecs.shape[0]*dip_vecs.shape[1], 3))
+        from Converter import Constants
+        from MolecularSys import MolecularOperations
+        from scipy.interpolate import griddata
+
+        npfilename = os.path.join(self.molecule.mol_dir, "DVR Results", f"{self.method}_2D_embeddedDipoles.npy")
+        npcoordname = os.path.join(self.molecule.mol_dir, "DVR Results", f"{self.method}_2D_embeddedCoords.npy")
+        if os.path.exists(npfilename):
+            newdips = np.load(npfilename)
+            newcoords = np.load(npcoordname)
+        else:
+            newcoords, newdips = MolecularOperations(self.molecule).many_rotations(**self.molecule.embed_dict)
+            np.save(npfilename, newdips)
+            np.save(npcoordname, newcoords)
+        oos = Constants.convert(MolecularOperations(self.molecule).calculateBonds(newcoords, *self.scanCoords[0]),
+                                "angstroms", to_AU=False)
+        ohs = Constants.convert(MolecularOperations(self.molecule).calculateBonds(newcoords, *self.scanCoords[1]),
+                                "angstroms", to_AU=False)
+        MrOH = (oos/2) - ohs
+        MrOH = np.around(MrOH, 4)
+        dip_vecs = newdips
         bigGrid = self.TwoDres["grid"][0]
         npts = reduce(mul, bigGrid.shape[:-1], 1)
         grid = np.reshape(bigGrid, (npts, bigGrid.shape[-1]))
         new_dips = np.zeros((npts, 3))
         for j in np.arange(3):
-            extrap_funct = Potentials2D().exterp2d(np.column_stack((roos, rohs)), dip_vecs[:, j])
-            new_dips[:, j] = extrap_funct(grid)
+            new_dips[:, j] = griddata(np.column_stack((oos, MrOH)), dip_vecs[:, j], grid, method="nearest")
             # from McUtils.Plots import ListContourPlot
-            # ListContourPlot(np.column_stack((grid, new_dips[:, j]))).show()
+            # ListContourPlot(np.column_stack((grid, new_dips[:, j])), colorbar=True).show()
         return new_dips
 
     def interp_dipoles(self):

@@ -13,7 +13,8 @@ class LogInterpreter:
         self.scancoord_1 = self.molecule.scanCoords[0]
         self.scancoord_2 = self.molecule.scanCoords[1]
         self._atomnum = None  # should be atomic numbers
-        self._energies = None  # np.ndarray of electronic energies from Gaussian
+        self._energies = None  # np.ndarray of electronic energies from Gaussian fillvalues to be square
+        self._rawenergies = None  # np.ndarray of electronic energies ONLY FROM GAUSSIAN
         self._finite_energies = None  # np.ndarray of electronic energies from bottom of oo wells
         self._cartesians = None  # dictionary of cartesian coordinates keyed by (x, y) distances
         self._zmatrices = None   # dictionary of z-matrix values keyed by (x, y) distances
@@ -26,6 +27,12 @@ class LogInterpreter:
         return self._energies
 
     @property
+    def rawenergies(self):
+        if self._rawenergies is None:
+            self._rawenergies = self.get_electronic_energy(rawenergies=True, **self.params)
+        return self._rawenergies
+
+    @property
     def finite_energies(self):
         if self._finite_energies is None:
             self._finite_energies = self.get_finitedata()
@@ -34,7 +41,10 @@ class LogInterpreter:
     @property
     def cartesians(self):
         if self._cartesians is None:
-            self._cartesians = self.get_scoords()
+            if self.molecule.dimension == "2D":
+                self._cartesians = self.get_scoords(midpoint=True)
+            else:
+                self._cartesians = self.get_scoords()
         return self._cartesians
 
     @property
@@ -55,7 +65,7 @@ class LogInterpreter:
             self._dipoles = self.get_dips(**self.params)
         return self._dipoles
 
-    def get_electronic_energy(self, shift=True, optimized=None, **params):
+    def get_electronic_energy(self, shift=True, optimized=None, rawenergies=False, **params):
         """Pulls Energies from the "Summary" portion of a log file. Shifts the potential energy to 0 to avoid
          problems with DVR later and extrapolates to a regular sized rudy grid to avoid problems with
          interpolation /sizing/ etc.
@@ -63,33 +73,69 @@ class LogInterpreter:
         :rtype: np.ndarray """
         from McUtils.Zachary.Interpolator import Interpolator
         ens = []
+        crds = []
+        full_grid = np.array(list(self.cartesians.keys()))
         if optimized is None:
             raise Exception("No energy type specified.")
-        for log in self.logs:
-            if optimized:
-                with GaussianLogReader(log) as reader:
-                    parse = reader.parse("OptimizedScanEnergies")
-                energy_array, coords = parse["OptimizedScanEnergies"]
-                roo = coords['Roo12']
-                roh = coords['Roh']
-                ens.append(np.column_stack((roo, roh, energy_array)))
-            else:
-                with GaussianLogReader(log) as reader:
-                    parse = reader.parse("ScanEnergies")
-                just_the_val = parse["ScanEnergies"]["values"][:, 1:]  # returns only the MP2 energy
-                just_the_val = np.concatenate((just_the_val[:, :2], just_the_val[:, [-1]]), axis=1)
-                ens.append(just_the_val)
-        energy = np.concatenate(ens)
-        energy[:, 0] *= 2
-        idx = np.lexsort((energy[:, 1], energy[:, 0]))
-        energy = energy[idx]
-        row_mask = np.append([True], np.any(np.diff(energy, axis=0), 1))
-        out = energy[row_mask]
+        if self.molecule.dimension == "2D":
+            for log in self.logs:
+                if optimized:
+                    with GaussianLogReader(log) as reader:
+                        parse = reader.parse("OptimizedScanEnergies")
+                    energy_array, coords = parse["OptimizedScanEnergies"]
+                    roo = coords['Roo12']
+                    roh = coords['MrOH']
+                    if 'far' in log:
+                        roh = -roh
+                    crds.append(np.column_stack((roo, roh)))
+                    ens.append(energy_array)
+                else:
+                    with GaussianLogReader(log) as reader:
+                        parse = reader.parse("ScanEnergies")
+                    vals = parse["ScanEnergies"]["values"][:, 3]  # N MrOH SCF MP2
+                    ens.append(vals)
+            energy = np.concatenate(ens)
+            if len(crds) > 0:
+                coord_array = np.concatenate(crds)
+                idx = np.lexsort((coord_array[:, 0], coord_array[:, 1]))
+                energy = energy[idx]
+                idx = np.lexsort((full_grid[:, 0], full_grid[:, 1]))
+                full_grid = full_grid[idx]
+
+            energyF = np.column_stack((full_grid, energy))
+            idx = np.lexsort((full_grid[:, 1], full_grid[:, 0]))
+            out = energyF[idx]
+        else:
+            for log in self.logs:
+                if optimized:
+                    with GaussianLogReader(log) as reader:
+                        parse = reader.parse("OptimizedScanEnergies")
+                    energy_array, coords = parse["OptimizedScanEnergies"]
+                    roo = coords['Roo12']
+                    roh = coords['Roh']
+                    ens.append(np.column_stack((roo, roh, energy_array)))
+                else:
+                    with GaussianLogReader(log) as reader:
+                        parse = reader.parse("ScanEnergies")
+                    just_the_val = parse["ScanEnergies"]["values"][:, 1:]  # returns only the MP2 energy
+                    just_the_val = np.concatenate((just_the_val[:, :2], just_the_val[:, [-1]]), axis=1)
+                    ens.append(just_the_val)
+            energy = np.concatenate(ens)
+            energy[:, 0] *= 2
+            idx = np.lexsort((energy[:, 1], energy[:, 0]))
+            energyF = energy[idx]
+            row_mask = np.append([True], np.any(np.diff(energyF, axis=0), 1))
+            out = energyF[row_mask]
         if shift:
             out[:, 2:] -= min(out[:, 2:])  # shift gaussian numbers to zero HERE to avoid headaches later.
-        square_grid, square_vals = Interpolator(out[:, :2], out[:, 2], interpolation_function=lambda: "ignore")\
-            .regular_grid(interp_kind='cubic', fillvalues=False)
-        energyArray = np.column_stack((square_grid, square_vals))
+        else:
+            pass
+        if rawenergies:
+            energyArray = out
+        else:
+            sq_grid, sq_vals = Interpolator(out[:, :2], out[:, 2], interpolation_function=lambda: "ignore").\
+                regular_grid(interp_kind='cubic', fillvalues=True)
+            energyArray = np.column_stack((sq_grid, sq_vals))
         return energyArray
 
     def get_finitedata(self):
@@ -111,7 +157,7 @@ class LogInterpreter:
         finite_energies[:, 2:] -= min(finite_energies[:, 2:])
         return finite_energies
 
-    def get_scoords(self):
+    def get_scoords(self, midpoint=False):
         """ pulls the optimized (if applicable) structures from  a 2D Gaussian scan.
         :return: atomnum:
         :return: cartesian coordinates at STANDARD optimized geometry keyed by the (scancoord_1, scancoord_2) distances.
@@ -129,8 +175,16 @@ class LogInterpreter:
 
             ydists = MolecularOperations.calculateBonds(ccs, *self.scancoord_2)
             ydists = np.around(ydists, 4)
-
-            coords = zip(xdists, ydists, ccs)
+            if midpoint:
+                if "flipped" in log:
+                    MrOH = -1*((xdists / 2) - ydists)
+                    MrOH = np.around(MrOH, 4)
+                else:
+                    MrOH = (xdists/2) - ydists
+                    MrOH = np.around(MrOH, 4)
+                coords = zip(xdists, MrOH, ccs)
+            else:
+                coords = zip(xdists, ydists, ccs)
             struct.update((((x, y), cc) for x, y, cc in coords))
         return struct
 
@@ -200,35 +254,20 @@ class LogInterpreter:
             struct.update(((c, d) for c, d in zip(coord, dips)))
         return struct
 
-    def cut_dictionary(self, midpoint=False, fillvalues=False, interp_kind='cubic', plot=False):
-        """ creates a dictionary of cuts from POTENTIAL ENERGY SURFACES (scancoord_2 OR MIDPOINT scancoord_2)
-            -- interpolates to a square if not already (in the y-coordinate) to make everyone's life easier
-        :param midpoint: If true, calculates scancoord_2 to be the distance from the midpoint of scancoord_1
-        :type midpoint: Bool
-        :param fillvalues: If true, instead of extrapolating points outside of the grid are filled with the last data
-        point on either side. When False, values are extrapolated via interp_kind
-        :type fillvalues: Bool
-        :param interp_kind: type of interpolation to do ('cubic' | 'linear' | 'nearest' | ...)
-        :type interp_kind: str
-        :param plot: If true, plots the extrapolated cuts for visualization purposes.
-        :type plot: Bool
+    def cut_dictionary(self, midpoint=False):
+        """ creates a dictionary of cuts from POTENTIAL ENERGY SURFACES (uses those coords and energies)
         :return: dictionary: {scancoord_1: (scancoord_2, energy)} (input units)
         :rtype: OrderedDict
         """
-        from scipy import interpolate
-        import matplotlib.pyplot as plt
         from collections import OrderedDict
         pes = self.energies
         xvals = np.unique(self.energies[:, 0])
         slices = [pes[self.energies[:, 0] == xv] for xv in xvals]
         slices = [slICE[slICE[:, 1].argsort()] for slICE in slices]
-        maxx = max(len(slIce) for slIce in slices)
-        idx = np.argmax([len(slIce) for slIce in slices])
-        rnge = sorted(slices[idx][:, 1])
         cuts = OrderedDict()
         for slICE in slices:
             if midpoint:
-                slICE[:, 1] = (slICE[0, 0]/2) - slICE[:, 1]
+                slICE[:, 1] = (slICE[0, 0] / 2) - slICE[:, 1]
                 slICE[:, 1] *= -1
             cuts[slICE[0, 0]] = slICE[:, 1:]
         return cuts

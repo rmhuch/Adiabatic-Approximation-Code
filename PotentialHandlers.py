@@ -46,7 +46,7 @@ class Potentials2D:
         from scipy import interpolate
         xx = np.unique(data_points[:, 0])
         yy = np.unique(data_points[:, 1])
-        values = vals.reshape(len(xx), len(yy))
+        values = vals.reshape(len(yy), len(xx))  # MUST BE SHAPE NxM
         extrap_func = interpolate.interp2d(xx, yy, values, kind='cubic', fill_value=None)
 
         def pf(grid, extrap=extrap_func):
