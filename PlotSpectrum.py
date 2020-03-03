@@ -3,11 +3,12 @@ import matplotlib.pyplot as plt
 
 
 class Spectrum:
-    def __init__(self, moleculeObj=None, spectType=None, OODVRnpz=None, OHDVRnpz=None, TwoDnpz=None, DVRmethod=None):
+    def __init__(self, moleculeObj=None, spectType=None, TDMtype=None, OODVRnpz=None, OHDVRnpz=None, TwoDnpz=None, DVRmethod=None):
         self.molecule = moleculeObj
         if self.molecule is None:
             raise Exception("No molecule to test")
         self.spectType = spectType
+        self.TDMtype = TDMtype
         if self.spectType == "Franck-Condon":
             self.OODVRnpz = OODVRnpz
             self.OHDVRnpz = OHDVRnpz
@@ -39,7 +40,10 @@ class Spectrum:
     @property
     def intensities(self):
         if self._intensities is None:
-            self._intensities = self.gettingIntense()
+            if self.shSpectType == "2DTDM":
+                self._intensities = self.getting2DIntense()
+            else:
+                self._intensities = self.gettingIntense()
         return self._intensities
 
     def find_FancyF(self, woo=None, woh=None):
@@ -95,54 +99,75 @@ class Spectrum:
         print(f"Frequencies: {frequencies}")
         print(f"Intensity: {np.sum(intensities)}")
         print(f"Normalized Intensities: {norm_intents}")
+        fig = plt.gcf()
+        fig.set_size_inches(8, 4)
         plt.rcParams.update({'font.size': 16})
         markerline, stemline, baseline = plt.stem(frequencies, norm_intents,
                                                   linefmt=color, markerfmt=' ', use_line_collection=True,
                                                   label=f"Cubic Harmonic {label}")
         plt.setp(stemline, 'linewidth', 6.0)
         plt.setp(baseline, visible=False)
-        plt.ylim(0, 1)
+        # plt.ylim(0, 1)
+
+    def getting2DIntense(self):
+        from IntensityCalculator import Intensities
+        twoDres = np.load(self.TwoDnpz)
+        twoDwfns = twoDres["wfns_array"]
+        tdms = self.tmObj.TwoDtdms[1]
+        if self.TDMtype == "Poly":
+            trans_mom = tdms["poly"]
+        elif self.TDMtype == "Cubic":
+            trans_mom = tdms["cubic"]
+        elif self.TDMtype == "Quadratic":
+            trans_mom = tdms["quad"]
+        elif self.TDMtype == "Linear":
+            trans_mom = tdms["lin"]
+        elif self.TDMtype == "Constant":
+            trans_mom = tdms["const"]
+        else:
+            raise Exception("Can't determine TDM type.")
+        intensities = Intensities.TwoD(twoDwfns, trans_mom)
+        return intensities
 
     def gettingIntense(self):
-        intents = np.zeros(3)
-        if self.spectType == "2D w/TDM":
-            twoDres = np.load(self.TwoDnpz)
-            twoDwfns = twoDres["wfns_array"]
-            dip_mat = self.tmObj.interp_2D_dipoles()
-            for i in np.arange(1, len(twoDwfns)):
-                x = 0
-                for j in np.arange(3):
-                    x += (np.dot(twoDwfns[0], (dip_mat[:, j] * twoDwfns[i]))) ** 2
-                    # x is magnitude squared because instead of taking the sqrt and then squaring, I just didn't.
-                intents[i-1] = x
-        else:
-            OODVRres = np.load(self.OODVRnpz)
-            ooWfns = OODVRres["wfns_array"]
-            wfnAmpIdx = np.argwhere(ooWfns[0, :, 0] > 1E-5)
-            gs_wfn = ooWfns[0, wfnAmpIdx, 0]
-            for i in np.arange(3):  # excited state wfn
-                if self.tmObj is not None:  # TDM
-                    trans_mom = self.tmObj.mus[1][:, 1:]
-                    comp_intents = np.zeros(3)
-                    for j in np.arange(3):  # transition moment component
-                        es_wfn = ooWfns[1, wfnAmpIdx, i].T
-                        super_es = trans_mom[:, j].T * es_wfn
-                        comp_intents[j] = np.dot(gs_wfn.T, super_es.T)
-                    intents[i] = np.linalg.norm(comp_intents) ** 2
-                else:  # FC
-                    es_wfn = ooWfns[1, wfnAmpIdx, i]
-                    intents[i] = np.dot(gs_wfn.T, es_wfn) ** 2
-
+        from IntensityCalculator import Intensities
+        # rewrite this so that it calls to intensity class which either returns FC intensities, tdm intensities,
+        # or expanded tdm intensities.
+        OODVRres = np.load(self.OODVRnpz)
+        ooWfns = OODVRres["wfns_array"]
+        gs_wfn = ooWfns[0, :, 0]
+        es_wfn = ooWfns[1, :, 0:3]
+        tdms = self.tmObj.tdms[1]
+        if self.tmObj is not None:  # TDM
+            if self.TDMtype == "Poly":
+                trans_mom = tdms["poly"]
+            elif self.TDMtype == "Cubic":
+                trans_mom = tdms["cubic"]
+            elif self.TDMtype == "Quadratic":
+                trans_mom = tdms["quad"]
+            elif self.TDMtype == "Linear":
+                trans_mom = tdms["lin"]
+            elif self.TDMtype == "Constant":
+                trans_mom = tdms["const"]
+            else:
+                raise Exception("Can't determine TDM type.")
+            intents = Intensities.TDM(gs_wfn, es_wfn, trans_mom)
+        else:  # FC
+            intents = Intensities.FranckCondon(gs_wfn, es_wfn)
         return intents
 
-    def make_spect(self, normalize=True, invert=False, line_type='b-', freq_shift=0, savefile=False):
+    def make_spect(self, normalize=True, invert=False, line_type='b-', freq_shift=0, savefile=True):
+        if self.TDMtype is None:
+            TDMtype = ""
+        else:
+            TDMtype = self.TDMtype
         if self.spectType == "2D w/TDM":
             twoDres = np.load(self.TwoDnpz)
-            filename = f"{self.molecule.method}_{self.shSpectType}spectrum.dat"
+            filename = f"{self.molecule.method}_{TDMtype}{self.shSpectType}spectrum.dat"
             title = f"{self.molecule.method} scan {self.spectType} Spectrum Values: "
             freqs = twoDres["energy_array"][1:] - twoDres["energy_array"][0]
         else:
-            filename = f"{self.molecule.method}_{self.DVRmethod}OH_{self.shSpectType}spectrum.dat"
+            filename = f"{self.molecule.method}_{self.DVRmethod}OH_{TDMtype}{self.shSpectType}spectrum.dat"
             title = f"{self.molecule.method} scan {self.DVRmethod} OH {self.spectType} Spectrum Values: "
             OODVRres = np.load(self.OODVRnpz)
             freqs = OODVRres["energy_array"][1, :3] - OODVRres["energy_array"][0, 0]
@@ -163,20 +188,22 @@ class Spectrum:
         else:
             intensity = intents
         frequency = freqs + freq_shift
-        # fig = plt.figure(figsize=(9, 6), dpi=300)
-        plt.rcParams.update({'font.size': 16})
+        # fig = plt.gcf()
+        # fig.set_size_inches(7.5, 2)
+        plt.rcParams.update({'font.size': 20})
+
         if self.DVRmethod is None:
             markerline, stemline, baseline = plt.stem(frequency, intensity,
                                                       linefmt=line_type, markerfmt=' ', use_line_collection=True,
-                                                      label=f"{self.molecule.method} {self.spectType}")
+                                                      label=f"{self.molecule.method} {TDMtype} {self.spectType}")
         else:
             markerline, stemline, baseline = plt.stem(frequency, intensity, linefmt=line_type, markerfmt=' ',
                                                       use_line_collection=True, label=
-                                                      f"{self.molecule.method} {self.DVRmethod} OH {self.spectType}")
+                                                      f"{self.molecule.method} {self.DVRmethod} OH {TDMtype} {self.spectType}")
         plt.setp(stemline, 'linewidth', 6.0)
         plt.setp(baseline, visible=False)
         plt.ylim(0, 1)
-        # plt.xlim(2200, 3700)
+        # plt.xlim(1800, 3200)
         plt.ylabel('Intensity')
         plt.xlabel('Energy ($\mathrm{cm}^{-1}$)')
         plt.tight_layout()

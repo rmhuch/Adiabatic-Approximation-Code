@@ -62,13 +62,13 @@ class Molecule:
         else:
             scan_dir = os.path.join(self.mol_dir, "2D Scans OH")
         if self.method == "rigid":
-            allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*rigid*.log"))))
+            allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*_rigid_*.log"))))
         elif self.method == "partrig":
             allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*partrig*.log"))))
         elif self.method == "partrel":
             allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*partrel*.log"))))
         elif self.method == "relax":
-            allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*relax*.log"))))
+            allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*_relax_*.log"))))
         else:
             raise Exception("Weird. I don't know that one.")
         return allscans
