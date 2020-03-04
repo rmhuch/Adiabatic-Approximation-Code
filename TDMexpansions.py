@@ -10,10 +10,13 @@ class TM2Dexpansion:
         v = ['x', 'y', 'z']
         for i in np.arange(3):  # hard coded because this is always the number of components (ie x, y, z)
             cubic_mus[:, i] = eqDip[i] + derivs[v[i]]["firstOH"]*delta_roh + derivs[v[i]]["firstOO"]*delta_Roo + \
-                           derivs[v[i]]["secondOH"]*(delta_roh**2) + derivs[v[i]]["secondOO"]*(delta_Roo**2) + \
-                           derivs[v[i]]["mixedOHOO"]*delta_Roo*delta_roh + derivs[v[i]]["mixedOHOHOO"]*(delta_roh**2)*delta_Roo + \
-                           derivs[v[i]]["mixedOHOOOO"]*delta_roh*(delta_Roo**2) + derivs[v[i]]["thirdOH"]*(delta_roh**3) + \
-                           derivs[v[i]]["thirdOO"]*(delta_Roo**3)
+                           derivs[v[i]]["secondOH"]*(delta_roh**2)*(1/2) + \
+                           derivs[v[i]]["secondOO"]*(delta_Roo**2)*(1/2) + \
+                           derivs[v[i]]["mixedOHOO"]*delta_Roo*delta_roh + \
+                           derivs[v[i]]["mixedOHOHOO"]*(delta_roh**2)*(1/2)*delta_Roo + \
+                           derivs[v[i]]["mixedOHOOOO"]*delta_roh*(delta_Roo**2)*(1/2) + \
+                           derivs[v[i]]["thirdOH"]*(delta_roh**3)*(1/3) + \
+                           derivs[v[i]]["thirdOO"]*(delta_Roo**3)*(1/3)
         return cubic_mus
 
     @classmethod
@@ -25,9 +28,34 @@ class TM2Dexpansion:
         v = ['x', 'y', 'z']
         for i in np.arange(3):  # hard coded because this is always the number of components (ie x, y, z)
             quad_mus[:, i] = eqDip[i] + derivs[v[i]]["firstOH"]*delta_roh + derivs[v[i]]["firstOO"]*delta_Roo + \
-                           derivs[v[i]]["secondOH"]*(delta_roh**2) + derivs[v[i]]["secondOO"]*(delta_Roo**2) + \
+                           derivs[v[i]]["secondOH"]*(delta_roh**2)*(1/2) + \
+                           derivs[v[i]]["secondOO"]*(delta_Roo**2)*(1/2) + \
                            derivs[v[i]]["mixedOHOO"]*delta_Roo*delta_roh
         return quad_mus
+
+    @classmethod
+    def quadBILINtdm(cls, params, derivs):
+        eqDip = params["eqDipole"]
+        delta_roh = params["delta_roh"]
+        delta_Roo = params["delta_Roo"]
+        biquad_mus = np.zeros((*delta_Roo.shape, 3))
+        v = ['x', 'y', 'z']
+        for i in np.arange(3):  # hard coded because this is always the number of components (ie x, y, z)
+            biquad_mus[:, i] = eqDip[i] + derivs[v[i]]["firstOH"]*delta_roh + derivs[v[i]]["firstOO"]*delta_Roo + \
+                           derivs[v[i]]["mixedOHOO"]*delta_Roo*delta_roh
+        return biquad_mus
+
+    @classmethod
+    def quadOHtdm(cls, params, derivs):
+        eqDip = params["eqDipole"]
+        delta_roh = params["delta_roh"]
+        delta_Roo = params["delta_Roo"]
+        ohquad_mus = np.zeros((*delta_Roo.shape, 3))
+        v = ['x', 'y', 'z']
+        for i in np.arange(3):  # hard coded because this is always the number of components (ie x, y, z)
+            ohquad_mus[:, i] = eqDip[i] + derivs[v[i]]["firstOH"]*delta_roh + derivs[v[i]]["firstOO"]*delta_Roo + \
+                           derivs[v[i]]["secondOH"]*(delta_roh**2)*(1/2)
+        return ohquad_mus
 
     @classmethod
     def linTDM(cls, params, derivs):

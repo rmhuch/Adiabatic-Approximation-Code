@@ -114,15 +114,19 @@ class Spectrum:
         twoDres = np.load(self.TwoDnpz)
         twoDwfns = twoDres["wfns_array"]
         tdms = self.tmObj.TwoDtdms[1]
-        if self.TDMtype == "Poly":
+        if self.TDMtype == "Dipole Surface":
             trans_mom = tdms["poly"]
         elif self.TDMtype == "Cubic":
             trans_mom = tdms["cubic"]
         elif self.TDMtype == "Quadratic":
             trans_mom = tdms["quad"]
+        elif self.TDMtype == "Quadratic OH only":
+            trans_mom = tdms["quadOH"]
+        elif self.TDMtype == "Quadratic Bilinear":
+            trans_mom = tdms["quadbilin"]
         elif self.TDMtype == "Linear":
             trans_mom = tdms["lin"]
-        elif self.TDMtype == "Constant":
+        elif self.TDMtype == "Linear OH only":
             trans_mom = tdms["const"]
         else:
             raise Exception("Can't determine TDM type.")
@@ -156,7 +160,7 @@ class Spectrum:
             intents = Intensities.FranckCondon(gs_wfn, es_wfn)
         return intents
 
-    def make_spect(self, normalize=True, invert=False, line_type='b-', freq_shift=0, savefile=True):
+    def make_spect(self, normalize=True, invert=False, line_type='b-', freq_shift=0, savefile=False):
         if self.TDMtype is None:
             TDMtype = ""
         else:

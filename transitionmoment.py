@@ -8,7 +8,7 @@ class TransitionMoment:
             raise Exception("No molecule to test")
         self.method = self.molecule.method
         self.scanCoords = self.molecule.scanCoords
-        self._logData = None
+        self.logData = moleculeObj.logData
         self._embeddedCoords = None
         self._embeddedDips = None
         if dimension == "1D":
@@ -24,17 +24,6 @@ class TransitionMoment:
             self._TwoDtdms = None
         else:
             raise Exception("No TM dimensionality specified")
-
-    @property
-    def logData(self):
-        if self._logData is None:
-            from GaussianHandler import LogInterpreter
-            if self.method == "rigid":
-                optBool = False
-            else:
-                optBool = True
-            self._logData = LogInterpreter(*self.molecule.scanLogs, moleculeObj=self.molecule, optimized=optBool)
-        return self._logData
 
     @property
     def embeddedCoords(self):
@@ -252,9 +241,11 @@ class TransitionMoment:
         twodeetdms["poly"] = Dips
         twodeetdms["cubic"] = TM2Dexpansion.cubicTDM(params, derivs)
         twodeetdms["quad"] = TM2Dexpansion.quadTDM(params, derivs)
+        twodeetdms["quadOH"] = TM2Dexpansion.quadOHtdm(params, derivs)
+        twodeetdms["quadbilin"] = TM2Dexpansion.quadBILINtdm(params, derivs)
         twodeetdms["lin"] = TM2Dexpansion.linTDM(params, derivs)
         twodeetdms["const"] = TM2Dexpansion.constTDM(params, derivs)
-        return square, twodeetdms
+        return Grid, twodeetdms
 
     @staticmethod
     def calc_derivs(fd_ohs, fd_oos, FDgrid, FDvalues):
