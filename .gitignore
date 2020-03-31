@@ -8,6 +8,7 @@ Tests/TestData
 *.fchk
 *.png
 *.npy
+*.npz
 *.xyz
 McUtils
 Psience
@@ -68,7 +69,6 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 

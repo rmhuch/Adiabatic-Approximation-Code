@@ -131,7 +131,6 @@ class AdiabaticApprox:
     def run_anharOH_DVR(self, plotPhasedWfns=None):
         """ Runs anharmonic DVR over the OH coordinate at every OO value."""
         from PotentialHandlers import Potentials1D
-        import matplotlib.pyplot as plt
         dvr_1D = DVR("ColbertMiller1D")
         cut_dict = self.logData.cut_dictionary(midpoint=True)
         roos = np.array(list(cut_dict.keys()))

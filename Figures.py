@@ -179,8 +179,15 @@ class TMplots:
 
     def DipoleSurfaces(self, preEmbed=False):
         """Plots the x,y,z components of the dipole surface."""
-        from McUtils.Plots import GraphicsGrid, ContourPlot
+        from McUtils.Plots import GraphicsGrid, ContourPlot, ListContourPlot
         dip_struct = self.tmObj.makeDipStruct(preEmbed=preEmbed)
+        forAnne = dip_struct.reshape((324, 5))
+        forAnne[:, 0] = forAnne[:, 0] - forAnne[90, 0]
+        forAnne[:, 1] = forAnne[:, 1] - forAnne[4, 1]
+        forAnne[:, :2] = Constants.convert(forAnne[:, :2], "angstroms", to_AU=True)
+        np.savetxt("OHOO_Dipoles.txt", forAnne)
+        ListContourPlot(forAnne, colorbar=True).show()
+        plt.close()
         roos = dip_struct[:, 0, 0]
         rohs = dip_struct[0, :, 1]
         dip_vecs = dip_struct[:, :, 2:]
@@ -197,7 +204,8 @@ class TMplots:
             main[0, i] = ContourPlot(roos, rohs, dip, **opts)
             main[0, i].plot_label = f'{comp[i]}-Component of Dipole'
         main.colorbar = {"graphics": main[0, 0].graphics}
-        plt.savefig(f"{self.molecule.method}_dipoleplots.png")
+        plt.show()
+        # plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_dipoleplots.png")
         plt.close()
 
     def InterpolatedDips(self):
@@ -237,10 +245,10 @@ class TMplots:
             plt.ylim(*ylim)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"{self.molecule.method}_polyTDM.png")
+        plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_polyTDM.png")
         plt.close()
 
-    def componentTMs(self):
+    def componentTMs(self, ylim=None):
         comp = ["X", "Y", "Z"]
         x = self.tmObj.mus[0][:, 0, 0]
         mus = self.tmObj.mus[1]
@@ -253,11 +261,13 @@ class TMplots:
             plt.plot(bigGrid, exMus["quad"][:, i], '-c', label='quad')  # plot quadratic expansion
             plt.plot(bigGrid, exMus["lin"][:, i], '-m', label='linear')  # plot linear expansion
             plt.plot(bigGrid, exMus["const"][:, i], '-y', label='constant')  # plot constant term
+            if ylim is not None:
+                plt.ylim(*ylim)
             plt.legend()
             plt.title(f"{comp[i]} Component of TDM")
             plt.xlabel("OO distance")
             plt.ylabel("Transition Moment")
-            plt.savefig(f"{self.molecule.method}_{comp[i]}componentTDM.png")
+            plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_{comp[i]}componentTDM.png")
             plt.close()
 
 class TM2Dplots:
@@ -279,6 +289,11 @@ class TM2Dplots:
         from McUtils.Plots import GraphicsGrid, ListContourPlot
         grid = self.tmObj.TwoDDips[0]
         dips = self.tmObj.TwoDDips[1]
+        # grid[:, 0] = grid[:, 0] - grid[2900, 0]
+        # grid[:, 1] = grid[:, 1] - grid[46, 1]
+        # grid = Constants.convert(grid, "angstroms", to_AU=True)
+        # forAnne = np.column_stack((grid[:, 0], grid[:, 1], dips))
+        # np.savetxt("XHOO_Dipoles.txt", forAnne)
         mini = np.amin(dips)
         maxi = np.amax(dips)
         comp = ['X', 'Y', 'Z']
@@ -292,7 +307,7 @@ class TM2Dplots:
             main[0, i] = ListContourPlot(np.column_stack((grid[:, 0], grid[:, 1], dips[:, i])), **opts)
             main[0, i].plot_label = f'{comp[i]}-Component of Dipole'
         main.colorbar = {"graphics": main[0, 0].graphics}
-        plt.savefig(f"{self.molecule.method}_2D_dipoleplots.png")
+        plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_2D_dipoleplots.png")
         plt.close()
 
     def componentTMs(self):
@@ -321,7 +336,7 @@ class TM2Dplots:
                                          figure=main[1, 1], **opts)
             main[1, 1].plot_label = f'{comp[i]}-Component Linear TDM'
             main.colorbar = {"graphics": main[0, 0].graphics}
-            plt.savefig(f"{self.molecule.method}_2D_{comp[i]}_TDMexpansions.png")
+            plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_2D_{comp[i]}_TDMexpansions.png")
             plt.close()
 
 
