@@ -42,7 +42,7 @@ class LogInterpreter:
     def cartesians(self):
         if self._cartesians is None:
             if self.molecule.dimension == "2D":
-                self._cartesians = self.get_scoords()  # had to change for RYNA change back
+                self._cartesians = self.get_scoords(midpoint=True)
             else:
                 self._cartesians = self.get_scoords()
         return self._cartesians

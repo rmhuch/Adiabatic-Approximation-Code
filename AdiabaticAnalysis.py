@@ -9,11 +9,11 @@ class AdiabaticApprox:
             raise Exception("No molecule to test")
         self.method = self.molecule.method
         self.scanCoords = self.molecule.scanCoords
+        self.logData = moleculeObj.logData
         self.sharedProt = sharedProt
         self.desiredEnergies = DVR_desiredEnergies
         self.NumPts = NumPts
         self._DVRdir = None
-        self._logData = None
         self._massdict = None
 
     @property
@@ -22,17 +22,6 @@ class AdiabaticApprox:
             import os
             self._DVRdir = os.path.join(self.molecule.mol_dir, "DVR Results")
         return self._DVRdir
-
-    @property
-    def logData(self):
-        if self._logData is None:
-            from GaussianHandler import LogInterpreter
-            if self.method == "rigid":
-                optBool = False
-            else:
-                optBool = True
-            self._logData = LogInterpreter(*self.molecule.scanLogs, moleculeObj=self.molecule, optimized=optBool)
-        return self._logData
 
     @property
     def massdict(self):
@@ -196,11 +185,12 @@ class AdiabaticApprox:
         npz_filename = os.path.join(self.DVRdir, f"{self.method}_2D_DVR.npz")
         twoD_grid = self.logData.rawenergies
         xy = Constants.convert(twoD_grid[:, :2], "angstroms", to_AU=True)
+        en = twoD_grid[:, 2]
+        en[en > 0.228] = 0.228  # set stricter limit
         res = dvr_2D.run(potential_grid=np.column_stack((xy, twoD_grid[:, 2])),
-                         divs=(100, 100), mass=[self.massdict["muOO"], self.massdict["muOH"]], num_wfns=15,
+                         divs=(100, 100), mass=[self.massdict["muOO"], self.massdict["muOOH"]], num_wfns=15,
                          domain=((min(xy[:, 0]),  max(xy[:, 0])), (min(xy[:, 1]), max(xy[:, 1]))),
                          results_class=ResultsInterpreter)
-
         dvr_grid = Constants.convert(res.grid, "angstroms", to_AU=False)
         dvr_pot = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
         all_ens = Constants.convert(res.wavefunctions.energies, "wavenumbers", to_AU=False)

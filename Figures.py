@@ -42,6 +42,8 @@ class AAplots:
         self.OHDVRresults = np.load(OHDVRnpz)
         self.OODVRresults = np.load(OODVRnpz)
         self.logData = moleculeObj.logData
+        import os
+        self.fig_dir = os.path.join(moleculeObj.mol_dir, "figures")
 
     def make_scan_plots(self, grid=False, contour=True):
         plt.rcParams.update({'font.size': 16})
@@ -90,7 +92,7 @@ class AAplots:
             # plt.xlim(0.75, 1.6)
             plt.title(f"Roo = {j}")
             plt.tight_layout()
-            plt.savefig(f"{self.molecule.method}_{self.OHDVRresults['method']}_OHwfns_Roo_{j}.png")
+            plt.savefig(f"{self.fig_dir}/{self.molecule.method}_{self.OHDVRresults['method']}_OHwfns_Roo_{j}.png")
             plt.close()
 
     def ooWfn_plots(self, wfns2plt=2, **params):
@@ -113,7 +115,7 @@ class AAplots:
         plt.xlim(2, 4)
         # plt.title(f"OH = {i}")
         plt.tight_layout()
-        plt.savefig(f"{self.molecule.method}_OOwfns_{self.OHDVRresults['method']}.png")
+        plt.savefig(f"{self.fig_dir}/{self.molecule.method}_OOwfns_{self.OHDVRresults['method']}.png")
         plt.close()
 
     def make_adiabatplots(self):
@@ -153,9 +155,7 @@ class AAplots:
         plt.ylim(0, 8000)
         plt.xlim(2, 4)
         plt.tight_layout()
-        figDir = os.path.join(self.molecule.mol_dir, "figures")
-        plt.savefig(
-            os.path.join(figDir, f"{self.molecule.method}_adiabatplot_{self.OHDVRresults['method']}OH_noEl.png"))
+        plt.savefig(f"{self.fig_dir}/{self.molecule.method}_adiabatplot_{self.OHDVRresults['method']}OH.png")
         plt.close()
 
 
@@ -167,6 +167,8 @@ class TMplots:
         self.OHDVRnpz = OHDVRnpz
         self.OODVRnpz = OODVRnpz
         self.OODVRres = np.load(OODVRnpz)
+        import os
+        self.fig_dir = os.path.join(moleculeObj.mol_dir, "figures")
         self._tmObj = None
 
     @property
@@ -181,12 +183,11 @@ class TMplots:
         """Plots the x,y,z components of the dipole surface."""
         from McUtils.Plots import GraphicsGrid, ContourPlot, ListContourPlot
         dip_struct = self.tmObj.makeDipStruct(preEmbed=preEmbed)
-        forAnne = dip_struct.reshape((324, 5))
-        forAnne[:, 0] = forAnne[:, 0] - forAnne[90, 0]
-        forAnne[:, 1] = forAnne[:, 1] - forAnne[4, 1]
-        forAnne[:, :2] = Constants.convert(forAnne[:, :2], "angstroms", to_AU=True)
-        np.savetxt("OHOO_Dipoles.txt", forAnne)
-        ListContourPlot(forAnne, colorbar=True).show()
+        # forAnne = dip_struct.reshape((342, 5))
+        # forAnne[:, 0] = forAnne[:, 0] - forAnne[90, 0]
+        # forAnne[:, 1] = forAnne[:, 1] - forAnne[4, 1]
+        # forAnne[:, :2] = Constants.convert(forAnne[:, :2], "angstroms", to_AU=True)
+        # np.savetxt("OHOO_Dipoles_T.txt", forAnne)
         plt.close()
         roos = dip_struct[:, 0, 0]
         rohs = dip_struct[0, :, 1]
@@ -204,8 +205,7 @@ class TMplots:
             main[0, i] = ContourPlot(roos, rohs, dip, **opts)
             main[0, i].plot_label = f'{comp[i]}-Component of Dipole'
         main.colorbar = {"graphics": main[0, 0].graphics}
-        plt.show()
-        # plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_dipoleplots.png")
+        plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_dipoleplots.png")
         plt.close()
 
     def InterpolatedDips(self):
@@ -245,7 +245,7 @@ class TMplots:
             plt.ylim(*ylim)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_polyTDM.png")
+        plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_polyTDM.png")
         plt.close()
 
     def componentTMs(self, ylim=None):
@@ -267,7 +267,7 @@ class TMplots:
             plt.title(f"{comp[i]} Component of TDM")
             plt.xlabel("OO distance")
             plt.ylabel("Transition Moment")
-            plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_{comp[i]}componentTDM.png")
+            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_{comp[i]}componentTDM.png")
             plt.close()
 
 class TM2Dplots:
@@ -276,6 +276,8 @@ class TM2Dplots:
         if self.molecule is None:
             raise Exception("No molecule to test")
         self.TwoDnpz = TwoDnpz
+        import os
+        self.fig_dir = os.path.join(moleculeObj.mol_dir, "figures")
         self._tmObj = None
 
     @property
@@ -307,7 +309,7 @@ class TM2Dplots:
             main[0, i] = ListContourPlot(np.column_stack((grid[:, 0], grid[:, 1], dips[:, i])), **opts)
             main[0, i].plot_label = f'{comp[i]}-Component of Dipole'
         main.colorbar = {"graphics": main[0, 0].graphics}
-        plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_2D_dipoleplots.png")
+        plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_2D_dipoleplots.png")
         plt.close()
 
     def componentTMs(self):
@@ -317,9 +319,9 @@ class TM2Dplots:
         exMus = self.tmObj.TwoDtdms[1]
         mini = np.amin(exMus["poly"])
         maxi = np.amax(exMus["poly"])
-        main = GraphicsGrid(ncols=2, nrows=2)
-        main.image_size = (1000, 1000)
         for i in np.arange(3):  # make one figure per comp
+            main = GraphicsGrid(ncols=2, nrows=2)
+            main.image_size = (1000, 1000)
             opts = dict(
                 plot_style=dict(cmap="Purples_r", levels=10, vmin=mini, vmax=maxi),
                 axes_labels=['OO bond Distance ($\mathrm{\AA}$)', 'OH bond Distance ($\mathrm{\AA}$)'])
@@ -336,7 +338,7 @@ class TM2Dplots:
                                          figure=main[1, 1], **opts)
             main[1, 1].plot_label = f'{comp[i]}-Component Linear TDM'
             main.colorbar = {"graphics": main[0, 0].graphics}
-            plt.savefig(f"{self.molecule.MoleculeName}_{self.molecule.method}_2D_{comp[i]}_TDMexpansions.png")
+            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_2D_{comp[i]}_TDMexpansions.png")
             plt.close()
 
 

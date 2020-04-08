@@ -1,10 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
 
 class Spectrum:
-    def __init__(self, moleculeObj=None, spectType=None, TDMtype=None, CHobj=None,
-                 OODVRnpz=None, OHDVRnpz=None, TwoDnpz=None, DVRmethod=None):
+    def __init__(self, moleculeObj=None, spectType=None, TDMtype=None, CHobj=None, AMPobj=None,
+                 OODVRnpz=None, OHDVRnpz=None, TwoDnpz=None):
         self.molecule = moleculeObj
         if self.molecule is None:
             raise Exception("No molecule to test")
@@ -13,6 +11,10 @@ class Spectrum:
         if self.spectType == "Franck-Condon":
             self.OODVRnpz = OODVRnpz
             self.OHDVRnpz = OHDVRnpz
+            if "Anharm" in self.OHDVRnpz:
+                self.DVRmethod = "Anharmonic"
+            else:
+                self.DVRmethod = "Harmonic"
             self.tmObj = None
             self.shSpectType = "FC"
 
@@ -20,23 +22,49 @@ class Spectrum:
             from transitionmoment import TransitionMoment
             self.OODVRnpz = OODVRnpz
             self.OHDVRnpz = OHDVRnpz
+            if "Anharm" in self.OHDVRnpz:
+                self.DVRmethod = "Anharmonic"
+            else:
+                self.DVRmethod = "Harmonic"
             self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D",
                                           OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
             self.shSpectType = "TDM"
 
         elif self.spectType == "2D w/TDM":
+            self.shSpectType = "2DTDM"
             from transitionmoment import TransitionMoment
             self.TwoDnpz = TwoDnpz
             self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz)
-            self.shSpectType = "2DTDM"
+
+        elif self.spectType == "Harmonic Model":
+            self.shSpectType = "harmModel"
+            from transitionmoment import TransitionMoment
+            self.TwoDnpz = TwoDnpz
+            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, min=True)
+
+        elif self.spectType == "Harmonic Model w/CC":
+            self.shSpectType = "harmModelCC"
+            from transitionmoment import TransitionMoment
+            self.TwoDnpz = TwoDnpz
+            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, min=True)
 
         elif self.spectType == "Cubic Harmonic":
             self.shSpectType = "cubicHarm"
             self.CHobj = CHobj
+            self.tmObj = None
+
+        elif self.spectType == "Anharmonic Model":
+            self.shSpectType = "anharmModel"
+            self.AMPobj = AMPobj
+            self.tmObj = None
+
+        elif self.spectType == "Anharmonic Model w/CC":
+            self.shSpectType = "anharmModelCC"
+            self.AMPobj = AMPobj
+            self.tmObj = None
 
         else:
             raise Exception("Unknown Spectrum Type")
-        self.DVRmethod = DVRmethod
         self._intensities = None
 
     @property
@@ -44,7 +72,13 @@ class Spectrum:
         if self._intensities is None:
             if self.shSpectType == "cubicHarm":
                 self._intensities = self.CHobj.cubicharmonic()  # returns energies then intensities
+            elif self.shSpectType == "anharmModel":
+                self._intensities = self.AMPobj.anharmonicmodelpotential()  # returns energies then matrix elements
+            elif self.shSpectType == "anharmModelCC":
+                self._intensities = self.AMPobj.anharmonicmodelpotential()
             elif self.shSpectType == "2DTDM":
+                self._intensities = self.getting2DIntense()
+            elif self.shSpectType == "harmModel" or self.shSpectType == "harmModelCC":
                 self._intensities = self.getting2DIntense()
             else:
                 self._intensities = self.gettingIntense()
@@ -71,7 +105,7 @@ class Spectrum:
             trans_mom = tdms["const"]
         else:
             raise Exception("Can't determine TDM type.")
-        intensities = Intensities.TwoD(twoDwfns, trans_mom)
+        intensities = Intensities.TwoD(twoDwfns, trans_mom, gridpoints=twoDres["grid"])
         return intensities
 
     def gettingIntense(self):
@@ -102,22 +136,34 @@ class Spectrum:
         return intents
 
     def make_spect(self, normalize=True, invert=False, line_type='b-', freq_shift=0, fig=None, addLabel=None):
+        import matplotlib.pyplot as plt
         if self.spectType == "Cubic Harmonic":
             title = "Cubic Harmonic Spectrum Values: "
             freqs = self.intensities[0]
+            matEls = None
             intents = self.intensities[1]
-            inents = intents
+        elif self.spectType == "Anharmonic Model" or self.spectType == "Anharmonic Model w/CC":
+            title = f"{self.spectType} Potential Values: "
+            freqs = self.intensities[0]
+            matEls = self.intensities[1]
+            intents = matEls * freqs
+        elif self.spectType == "Harmonic Model" or self.spectType == "Harmonic Model w/CC":
+            title = f"{self.spectType} Potential Values: "
+            twoDres = np.load(self.TwoDnpz)
+            freqs = twoDres["energy_array"][1:] - twoDres["energy_array"][0]
+            matEls = self.intensities
+            intents = self.intensities * freqs
         elif self.spectType == "2D w/TDM":
             twoDres = np.load(self.TwoDnpz)
             title = f"{self.molecule.method} scan {self.spectType} Spectrum Values: "
             freqs = twoDres["energy_array"][1:] - twoDres["energy_array"][0]
-            inents = self.intensities
+            matEls = self.intensities
             intents = self.intensities * freqs
         else:
             title = f"{self.molecule.method} scan {self.DVRmethod} OH {self.spectType} Spectrum Values: "
             OODVRres = np.load(self.OODVRnpz)
             freqs = OODVRres["energy_array"][1, :3] - OODVRres["energy_array"][0, 0]
-            inents = self.intensities
+            matEls = self.intensities
             intents = self.intensities * freqs
         norm_intents = intents / np.sum(intents)
 
@@ -131,7 +177,11 @@ class Spectrum:
             addLabel = ""
         else:
             addLabel = addLabel
-        label = f"{self.spectType} {self.TDMtype} {addLabel}"
+        if self.TDMtype is None:
+            TDMstr = ""
+        else:
+            TDMstr = self.TDMtype
+        label = f"{self.spectType} {TDMstr} {addLabel}"
         frequency = freqs + freq_shift
         if fig is None:
             fig, ax = plt.subplots(figsize=(8, 5))
@@ -147,64 +197,9 @@ class Spectrum:
         ax.set_ylabel('Intensity')
         ax.set_xlabel('Energy ($\mathrm{cm}^{-1}$)')
         plt.tight_layout()
-        valuesDict = {"label": label, "title": title, "intensities": inents, "norm_intensities": norm_intents,
+        valuesDict = {"label": label, "title": title, "matrix elements": matEls, "norm_intensities": norm_intents,
                       "frequencies": freqs}
         return valuesDict, (fig, ax)
 
-class CubicHarmonic:
-    def __init__(self, moleculeObj, omegaOO, omegaOH, FancyF=None):
-        self.molecule = moleculeObj
-        self.omegaOO = omegaOO
-        self.omegaOH = omegaOH
-        self.FancyF = FancyF
 
-    def find_FancyF(self):
-        import os
-        from Converter import Constants
-        from McUtils.Zachary import finite_difference
-        mO = Constants.mass("O", to_AU=True)
-        mH = Constants.mass("H", to_AU=True)
-        freqoo = Constants.convert(self.omegaOO, "wavenumbers", to_AU=True)
-        muOO = mO / 2
-        freqoh = Constants.convert(self.omegaOH, "wavenumbers", to_AU=True)
-        muOH = ((2 * mO) * mH) / ((2 * mO) + mH)
-        FD_file = os.path.join(self.molecule.mol_dir, 'Finite Scan Data', "newRigid_2D_finiteData.dat")
-        finite_vals = np.loadtxt(FD_file)  # Energy OO OH
-        finite_vals[:, 0] *= 2
-        finite_vals[:, :2] = Constants.convert(finite_vals[:, :2], "angstroms", to_AU=True)  # convert to bohr for math
-        idx = np.lexsort((finite_vals[:, 0], finite_vals[:, 1]))  # resort so same oh different oo
-        finite_vals = finite_vals[idx]
-        finite_vals = finite_vals.reshape((5, 5, 3))
-        FR = np.zeros(5)
-        # compute first derivative wrt oo FR
-        for j in range(5):
-            x = finite_vals[j, :, 0]  # roos
-            y = finite_vals[j, :, 2]  # energies
-            FR[j] = finite_difference(x, y, 1, end_point_precision=0, stencil=5, only_center=True)[0]
-        print(f"FR: {FR}")
-        # compute mixed derivative FrrR
-        FrrR = finite_difference(finite_vals[:, 1, 1], FR, 2, end_point_precision=0, stencil=5, only_center=True)[0]
-        print(f"FrrR: {FrrR}")
-        Qoo = np.sqrt(1/muOO/freqoo)
-        Qoh = np.sqrt(1/muOH/freqoh)
-        fancyF = FrrR * Qoh**2 * Qoo
-        return Constants.convert(fancyF, "wavenumbers", to_AU=False)
-
-    def cubicharmonic(self):
-        if self.FancyF is None:
-            fancyF = self.find_FancyF()
-            print(fancyF)
-        else:
-            fancyF = self.FancyF
-        deltaQ = fancyF / (2*self.omegaOO)
-        intensities = np.zeros(3)
-        energies = np.zeros(3)
-        factorial = [1, 1, 2]
-        for i in np.arange(3):
-            energies[i] = self.omegaOH - (fancyF**2/(8*self.omegaOO)) + (self.omegaOO*i)
-            numer = np.exp(-1*deltaQ**2/2)*deltaQ**(2*i)
-            denom = 2**i*factorial[i]
-            intensities[i] = numer / denom
-
-        return energies, intensities
 

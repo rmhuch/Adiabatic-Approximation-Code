@@ -8,6 +8,15 @@ class Molecule:
         self.MoleculeName = MoleculeName
         if MoleculeName is None:
             raise Exception("No Molecule to build.")
+        if self.MoleculeName == "H9O4pls":
+            self.OOmin = 2.5696
+            self.XHmin = 0.2723
+        elif self.MoleculeName == "H7O3pls":
+            self.OOmin = 2.5066
+            self.XHmin = 0.2179
+        else:
+            self.OOmin = None
+            self.XHmin = None
         self.atom_str = atom_str
         self.params = kwargs
         self.method = method

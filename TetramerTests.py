@@ -78,10 +78,10 @@ dvr_dir = os.path.expanduser(f"~/udrive/{ProtTet.MoleculeName}/DVR Results/")
 # resuROH = TetAAR.run_OO_DVR(OHDVRres=f"{dvr_dir}{ProtTetR.method}_HarmOHDVR_energies4.npz", plotPhasedWfns=False)
 
 # Flavor 3 - 2D DVR *coord shift to OO/XH
-# TetAA2D = AdiabaticApprox(moleculeObj=ProtTet2D,
-#                           DVR_desiredEnergies=4,
-#                           NumPts=500)
-# res2dee = TetAA2D.run_2D_DVR()
+TetAA2D = AdiabaticApprox(moleculeObj=ProtTet2D,
+                          DVR_desiredEnergies=4,
+                          NumPts=500)
+res2dee = TetAA2D.run_2D_DVR()
 
 # create AdiabaticApprox plots
 # change moleculeObj & Anharm/Harm as necessary
@@ -113,12 +113,12 @@ dvr_dir = os.path.expanduser(f"~/udrive/{ProtTet.MoleculeName}/DVR Results/")
 
 # create Spectrum objects
 # Flavor 1 Spectrum
-bleep = Spectrum(moleculeObj=ProtTet,
-                 spectType="Transition Dipole Moment",
-                 TDMtype="Poly",
-                 OHDVRnpz=f"{dvr_dir}{ProtTet.method}_AnharmOHDVR_energies4.npz",
-                 OODVRnpz=f"{dvr_dir}{ProtTet.method}_OODVR_wanharmOHDVR_energies4.npz",
-                 DVRmethod="Anharmonic")
+# bleep = Spectrum(moleculeObj=ProtTet,
+#                  spectType="Transition Dipole Moment",
+#                  TDMtype="Poly",
+#                  OHDVRnpz=f"{dvr_dir}{ProtTet.method}_AnharmOHDVR_energies4.npz",
+#                  OODVRnpz=f"{dvr_dir}{ProtTet.method}_OODVR_wanharmOHDVR_energies4.npz",
+#                  DVRmethod="Anharmonic")
 # bleep.make_spect(normalize=True, invert=False, line_type='C1-', freq_shift=-20)
 # blep = Spectrum(moleculeObj=ProtTet,
 #                 spectType="Franck-Condon",
@@ -205,40 +205,40 @@ bleep = Spectrum(moleculeObj=ProtTet,
 # tesssst.make_spect(normalize=True, invert=False, line_type='C6-', freq_shift=-10)
 
 # Flavor 3 Spectrum Components
-pebDS = Spectrum(moleculeObj=ProtTet2D,
-                 spectType="2D w/TDM",
-                 TDMtype="Dipole Surface",
-                 TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
-pebC = Spectrum(moleculeObj=ProtTet2D,
-                spectType="2D w/TDM",
-                TDMtype="Cubic",
-                TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
-pebQ = Spectrum(moleculeObj=ProtTet2D,
-                spectType="2D w/TDM",
-                TDMtype="Quadratic",
-                TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
-pebBQ = Spectrum(moleculeObj=ProtTet2D,
-                 spectType="2D w/TDM",
-                 TDMtype="Quadratic Bilinear",
-                 TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
-pebOHQ = Spectrum(moleculeObj=ProtTet2D,
-                  spectType="2D w/TDM",
-                  TDMtype="Quadratic OH only",
-                  TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
-pebL = Spectrum(moleculeObj=ProtTet2D,
-                spectType="2D w/TDM",
-                TDMtype="Linear",
-                TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
-pebCo = Spectrum(moleculeObj=ProtTet2D,
-                 spectType="2D w/TDM",
-                 TDMtype="Linear OH only",
-                 TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
-pebDS.make_spect(normalize=True, invert=False, line_type='C0-', freq_shift=-30, savefile=True)
-pebC.make_spect(normalize=True, invert=False, line_type='C6-', freq_shift=-20, savefile=True)
-pebQ.make_spect(normalize=True, invert=False, line_type='C5-', freq_shift=-10, savefile=True)
-pebOHQ.make_spect(normalize=True, invert=False, line_type='C8-', freq_shift=0, savefile=True)
-pebBQ.make_spect(normalize=True, invert=False, line_type='C7-', freq_shift=10, savefile=True)
-pebL.make_spect(normalize=True, invert=False, line_type='C4-', freq_shift=20, savefile=True)
-pebCo.make_spect(normalize=True, invert=False, line_type='C3-', freq_shift=30, savefile=True)
-plt.legend(fontsize=12)
-plt.show()
+# pebDS = Spectrum(moleculeObj=ProtTet2D,
+#                  spectType="2D w/TDM",
+#                  TDMtype="Dipole Surface",
+#                  TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
+# pebC = Spectrum(moleculeObj=ProtTet2D,
+#                 spectType="2D w/TDM",
+#                 TDMtype="Cubic",
+#                 TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
+# pebQ = Spectrum(moleculeObj=ProtTet2D,
+#                 spectType="2D w/TDM",
+#                 TDMtype="Quadratic",
+#                 TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
+# pebBQ = Spectrum(moleculeObj=ProtTet2D,
+#                  spectType="2D w/TDM",
+#                  TDMtype="Quadratic Bilinear",
+#                  TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
+# pebOHQ = Spectrum(moleculeObj=ProtTet2D,
+#                   spectType="2D w/TDM",
+#                   TDMtype="Quadratic OH only",
+#                   TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
+# pebL = Spectrum(moleculeObj=ProtTet2D,
+#                 spectType="2D w/TDM",
+#                 TDMtype="Linear",
+#                 TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
+# pebCo = Spectrum(moleculeObj=ProtTet2D,
+#                  spectType="2D w/TDM",
+#                  TDMtype="Linear OH only",
+#                  TwoDnpz=f"{dvr_dir}{ProtTet.method}_2D_DVR.npz")
+# pebDS.make_spect(normalize=True, invert=False, line_type='C0-', freq_shift=-30)
+# pebC.make_spect(normalize=True, invert=False, line_type='C6-', freq_shift=-20)
+# pebQ.make_spect(normalize=True, invert=False, line_type='C5-', freq_shift=-10)
+# pebOHQ.make_spect(normalize=True, invert=False, line_type='C8-', freq_shift=0)
+# pebBQ.make_spect(normalize=True, invert=False, line_type='C7-', freq_shift=10)
+# pebL.make_spect(normalize=True, invert=False, line_type='C4-', freq_shift=20)
+# pebCo.make_spect(normalize=True, invert=False, line_type='C3-', freq_shift=30)
+# plt.legend(fontsize=12)
+# plt.show()

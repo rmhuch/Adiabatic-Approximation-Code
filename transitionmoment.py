@@ -2,13 +2,14 @@ import numpy as np
 
 
 class TransitionMoment:
-    def __init__(self, moleculeObj=None, dimension=None, OHDVRnpz=None, OODVRnpz=None, TwoDnpz=None, **kwargs):
+    def __init__(self, moleculeObj=None, dimension=None, OHDVRnpz=None, OODVRnpz=None, TwoDnpz=None, min=False, **kwargs):
         self.molecule = moleculeObj
         if self.molecule is None:
             raise Exception("No molecule to test")
         self.method = self.molecule.method
         self.scanCoords = self.molecule.scanCoords
         self.logData = moleculeObj.logData
+        self.min = min
         self._embeddedCoords = None
         self._embeddedDips = None
         if dimension == "1D":
@@ -140,8 +141,14 @@ class TransitionMoment:
         grid = np.reshape(bigGrid, (npts, bigGrid.shape[-1]))
         new_dips = np.zeros((npts, 3))
         for j in np.arange(3):
-            new_dips[:, j] = griddata(np.column_stack((oos, MrOH)), dip_vecs[:, j], grid, method="cubic",
-                                      fill_value=np.min(dip_vecs[:, j]))
+            if self.min:
+                Doos = oos - self.molecule.OOmin
+                Dxhs = MrOH - self.molecule.XHmin
+                new_dips[:, j] = griddata(np.column_stack((Doos, Dxhs)), dip_vecs[:, j], grid,
+                                          method="cubic", fill_value=np.min(dip_vecs[:, j]))
+            else:
+                new_dips[:, j] = griddata(np.column_stack((oos, MrOH)), dip_vecs[:, j], grid,
+                                          method="cubic", fill_value=np.min(dip_vecs[:, j]))
         return grid, new_dips
 
     def interp_dipoles(self):
@@ -263,7 +270,6 @@ class TransitionMoment:
                                               end_point_precision=0, stencil=5, only_center=True)[0]
         derivs["thirdOO"] = finite_difference(fd_oos, FDvalues[:, 2], 3,
                                               end_point_precision=0, stencil=5, only_center=True)[0]
-
         derivs["mixedOHOO"] = finite_difference(FDgrid, FDvalues, (1, 1), stencil=(5, 5),
                                                 accuracy=0, end_point_precision=0, only_center=True)[0, 0]
         derivs["mixedOHOOOO"] = finite_difference(FDgrid, FDvalues, (1, 2), stencil=(5, 5),
