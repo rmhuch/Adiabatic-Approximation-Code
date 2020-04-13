@@ -2,14 +2,14 @@ import numpy as np
 
 
 class TransitionMoment:
-    def __init__(self, moleculeObj=None, dimension=None, OHDVRnpz=None, OODVRnpz=None, TwoDnpz=None, min=False, **kwargs):
+    def __init__(self, moleculeObj=None, dimension=None, OHDVRnpz=None, OODVRnpz=None, TwoDnpz=None, delta=False, **kwargs):
         self.molecule = moleculeObj
         if self.molecule is None:
             raise Exception("No molecule to test")
         self.method = self.molecule.method
         self.scanCoords = self.molecule.scanCoords
         self.logData = moleculeObj.logData
-        self.min = min
+        self.delta = delta
         self._embeddedCoords = None
         self._embeddedDips = None
         if dimension == "1D":
@@ -141,7 +141,7 @@ class TransitionMoment:
         grid = np.reshape(bigGrid, (npts, bigGrid.shape[-1]))
         new_dips = np.zeros((npts, 3))
         for j in np.arange(3):
-            if self.min:
+            if self.delta:
                 Doos = oos - self.molecule.OOmin
                 Dxhs = MrOH - self.molecule.XHmin
                 new_dips[:, j] = griddata(np.column_stack((Doos, Dxhs)), dip_vecs[:, j], grid,
@@ -245,7 +245,7 @@ class TransitionMoment:
         derivs = {'x': xderivs, 'y': yderivs, 'z': zderivs}
 
         twodeetdms = dict()
-        twodeetdms["poly"] = Dips
+        twodeetdms["dipSurf"] = Dips
         twodeetdms["cubic"] = TM2Dexpansion.cubicTDM(params, derivs)
         twodeetdms["quad"] = TM2Dexpansion.quadTDM(params, derivs)
         twodeetdms["quadOH"] = TM2Dexpansion.quadOHtdm(params, derivs)

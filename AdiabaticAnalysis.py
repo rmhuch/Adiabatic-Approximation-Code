@@ -81,7 +81,7 @@ class AdiabaticApprox:
                 plt.plot(x, wfns[k, :, 3]+3)
         return wfns
     
-    def run_harOH_DVR(self, plotPhasedWfns=None):
+    def run_harOH_DVR(self, plotPhasedWfns=False):
         """ Runs a harmonic approximation using DVR to be fast over the OH coordinate at every OO value."""
         from McUtils.Zachary import finite_difference
         dvr_1D = DVR("ColbertMiller1D")
@@ -117,7 +117,7 @@ class AdiabaticApprox:
                  wfns_array=wavefuns_array)
         return npz_filename
 
-    def run_anharOH_DVR(self, plotPhasedWfns=None):
+    def run_anharOH_DVR(self, plotPhasedWfns=False):
         """ Runs anharmonic DVR over the OH coordinate at every OO value."""
         from PotentialHandlers import Potentials1D
         dvr_1D = DVR("ColbertMiller1D")
@@ -150,7 +150,7 @@ class AdiabaticApprox:
                  wfns_array=wavefuns_array)
         return npz_filename
 
-    def run_OO_DVR(self, OHDVRres=None, plotPhasedWfns=None):
+    def run_OO_DVR(self, OHDVRres=None, plotPhasedWfns=False):
         """Runs OO DVR over the epsilon potentials"""
         from PotentialHandlers import Potentials1D
         dvr_1D = DVR("ColbertMiller1D")
@@ -174,6 +174,39 @@ class AdiabaticApprox:
             wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
         npz_filename = os.path.join(self.DVRdir,
                                     f"{self.method}_OODVR_w{OHresults['method']}OHDVR_energies{self.desiredEnergies}.npz")
+        # data saved in wavenumbers/angstroms
+        wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns, pot_array=potential_array)
+        np.savez(npz_filename, potential=potential_array, energy_array=energies_array, wfns_array=wavefuns_array)
+        return npz_filename
+
+    def run_harOO_DVR(self, OHDVRres=None, plotPhasedWfns=False):
+        """Fits epsilon potentials to a harmonic oscillator and then runs an OO DVR over it"""
+        from McUtils.Zachary import finite_difference
+        dvr_1D = DVR("ColbertMiller1D")
+        OHresults = np.load(OHDVRres)
+        epsi_pots = OHresults["epsilonPots"]
+        potential_array = np.zeros((2, self.NumPts, 2))
+        energies_array = np.zeros((2, self.desiredEnergies))
+        wavefunctions_array = np.zeros((2, self.NumPts, self.desiredEnergies))
+        x = Constants.convert(epsi_pots[:, 0], "angstroms", to_AU=True)
+        for j in np.arange(2):
+            en = Constants.convert(epsi_pots[:, j + 1], "wavenumbers", to_AU=True)
+            minE_idx = np.argmin(en)
+            en_s = en[minE_idx-2:minE_idx+3]
+            sx = x - x[minE_idx]
+            k = finite_difference(sx[minE_idx-2:minE_idx+3], en_s, 2, end_point_precision=0, stencil=5, only_center=True)[0]
+            mini = min(sx) - 1.0
+            maxi = max(sx) + 0.5
+            res = dvr_1D.run(potential_function="harmonic_oscillator", k=k, mass=self.massdict["muOO"],
+                             divs=self.NumPts, domain=(mini, maxi), num_wfns=self.desiredEnergies)
+            potential = Constants.convert(res.potential_energy.diagonal() + en[minE_idx], "wavenumbers", to_AU=False)
+            potential_array[j, :, 0] = Constants.convert((res.grid + x[minE_idx]), "angstroms", to_AU=False)
+            potential_array[j, :, 1] = potential
+            ens = Constants.convert(res.wavefunctions.energies + en[minE_idx], "wavenumbers", to_AU=False)
+            energies_array[j, :] = ens
+            wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
+        npz_filename = os.path.join(self.DVRdir,
+                                    f"{self.method}_harmOODVR_w{OHresults['method']}OHDVR_energies{self.desiredEnergies}.npz")
         # data saved in wavenumbers/angstroms
         wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns, pot_array=potential_array)
         np.savez(npz_filename, potential=potential_array, energy_array=energies_array, wfns_array=wavefuns_array)

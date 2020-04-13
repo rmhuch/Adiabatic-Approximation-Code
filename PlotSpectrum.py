@@ -1,7 +1,7 @@
 import numpy as np
 
 class Spectrum:
-    def __init__(self, moleculeObj=None, spectType=None, TDMtype=None, CHobj=None, AMPobj=None,
+    def __init__(self, moleculeObj=None, spectType=None, TDMtype=None, adiabatType=None, CHobj=None, AMPobj=None,
                  OODVRnpz=None, OHDVRnpz=None, TwoDnpz=None):
         self.molecule = moleculeObj
         if self.molecule is None:
@@ -11,10 +11,7 @@ class Spectrum:
         if self.spectType == "Franck-Condon":
             self.OODVRnpz = OODVRnpz
             self.OHDVRnpz = OHDVRnpz
-            if "Anharm" in self.OHDVRnpz:
-                self.DVRmethod = "Anharmonic"
-            else:
-                self.DVRmethod = "Harmonic"
+            self.DVRmethod = adiabatType
             self.tmObj = None
             self.shSpectType = "FC"
 
@@ -22,10 +19,7 @@ class Spectrum:
             from transitionmoment import TransitionMoment
             self.OODVRnpz = OODVRnpz
             self.OHDVRnpz = OHDVRnpz
-            if "Anharm" in self.OHDVRnpz:
-                self.DVRmethod = "Anharmonic"
-            else:
-                self.DVRmethod = "Harmonic"
+            self.DVRmethod = adiabatType
             self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D",
                                           OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
             self.shSpectType = "TDM"
@@ -40,13 +34,13 @@ class Spectrum:
             self.shSpectType = "harmModel"
             from transitionmoment import TransitionMoment
             self.TwoDnpz = TwoDnpz
-            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, min=True)
+            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, delta=True)
 
         elif self.spectType == "Harmonic Model w/CC":
             self.shSpectType = "harmModelCC"
             from transitionmoment import TransitionMoment
             self.TwoDnpz = TwoDnpz
-            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, min=True)
+            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, delta=True)
 
         elif self.spectType == "Cubic Harmonic":
             self.shSpectType = "cubicHarm"
@@ -90,7 +84,7 @@ class Spectrum:
         twoDwfns = twoDres["wfns_array"]
         tdms = self.tmObj.TwoDtdms[1]
         if self.TDMtype == "Dipole Surface":
-            trans_mom = tdms["poly"]
+            trans_mom = tdms["dipSurf"]
         elif self.TDMtype == "Cubic":
             trans_mom = tdms["cubic"]
         elif self.TDMtype == "Quadratic":
@@ -160,7 +154,7 @@ class Spectrum:
             matEls = self.intensities
             intents = self.intensities * freqs
         else:
-            title = f"{self.molecule.method} scan {self.DVRmethod} OH {self.spectType} Spectrum Values: "
+            title = f"{self.molecule.method} scan {self.DVRmethod} OH/OO {self.spectType} Spectrum Values: "
             OODVRres = np.load(self.OODVRnpz)
             freqs = OODVRres["energy_array"][1, :3] - OODVRres["energy_array"][0, 0]
             matEls = self.intensities
@@ -174,7 +168,10 @@ class Spectrum:
         else:
             intensity = intents
         if addLabel is None:
-            addLabel = ""
+            if self.DVRmethod is not None:
+                addLabel = self.DVRmethod
+            else:
+                addLabel = ""
         else:
             addLabel = addLabel
         if self.TDMtype is None:

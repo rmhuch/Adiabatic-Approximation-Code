@@ -40,7 +40,15 @@ class AAplots:
         if self.molecule is None:
             raise Exception("No molecule to test")
         self.OHDVRresults = np.load(OHDVRnpz)
+        if "anharmOH" in OHDVRnpz:
+            self.OHDVR = "anharm"
+        else:
+            self.OHDVR = "harm"
         self.OODVRresults = np.load(OODVRnpz)
+        if "harmOODVR" in OODVRnpz:
+            self.OODVR = "harm"
+        else:
+            self.OODVR = "anharm"
         self.logData = moleculeObj.logData
         import os
         self.fig_dir = os.path.join(moleculeObj.mol_dir, "figures")
@@ -92,7 +100,7 @@ class AAplots:
             # plt.xlim(0.75, 1.6)
             plt.title(f"Roo = {j}")
             plt.tight_layout()
-            plt.savefig(f"{self.fig_dir}/{self.molecule.method}_{self.OHDVRresults['method']}_OHwfns_Roo_{j}.png")
+            plt.savefig(f"{self.fig_dir}/{self.molecule.method}_{self.OHDVR}_OHwfns_Roo_{j}.png")
             plt.close()
 
     def ooWfn_plots(self, wfns2plt=2, **params):
@@ -115,12 +123,11 @@ class AAplots:
         plt.xlim(2, 4)
         # plt.title(f"OH = {i}")
         plt.tight_layout()
-        plt.savefig(f"{self.fig_dir}/{self.molecule.method}_OOwfns_{self.OHDVRresults['method']}.png")
+        plt.savefig(f"{self.fig_dir}/{self.molecule.method}_OOwfns_{self.OHDVR}OH{self.OODVR}OO.png")
         plt.close()
 
     def make_adiabatplots(self):
         from scipy import interpolate, optimize
-        import os
         mini_pot = self.logData.minimum_pot()
         eps = self.OHDVRresults["epsilonPots"]
         oo_energies = self.OODVRresults["energy_array"]
@@ -155,9 +162,38 @@ class AAplots:
         plt.ylim(0, 8000)
         plt.xlim(2, 4)
         plt.tight_layout()
-        plt.savefig(f"{self.fig_dir}/{self.molecule.method}_adiabatplot_{self.OHDVRresults['method']}OH.png")
+        plt.savefig(f"{self.fig_dir}/{self.molecule.method}_adiabatplot_{self.OHDVR}OH{self.OODVR}OO.png")
         plt.close()
 
+class AA2Dplots:
+    def __init__(self, moleculeObj=None, TwoDnpz=None, **kwargs):
+        self.molecule = moleculeObj
+        if self.molecule is None:
+            raise Exception("No molecule to test")
+        self.logData = moleculeObj.logData
+        import os
+        self.fig_dir = os.path.join(moleculeObj.mol_dir, "figures")
+        self.TwoDResults = np.load(TwoDnpz)
+
+    def plotProjections(self):
+        grid = self.TwoDResults["grid"].squeeze()
+        XHgrid = grid[0, :, 1]
+        wfns = self.TwoDResults["wfns_array"]
+        wfn_grids = wfns.reshape((len(wfns), grid.shape[0], grid.shape[1]))
+        new_wfn = []
+        for wfn_grid in wfn_grids:
+            # for every XH all the OO values
+            new_wfn.append(np.array([np.dot(wf_slice, wf_slice) for wf_slice in wfn_grid.T]))
+        # plot each transition with ground state wfn and savefig
+        colors = ["royalblue", "darkmagenta", "mediumslateblue", "mediumblue"]
+        for i in range(1, len(new_wfn)):
+            plt.plot(XHgrid, new_wfn[0], "--", color=colors[0], label=r"$\Psi_{0,0}$")
+            plt.plot(XHgrid, new_wfn[i], color=colors[i], label=r"$\Psi_{1, %d}$" % (i-1))
+            plt.xlabel("XH (angstroms)")
+            plt.ylabel("Probability Amplitude")
+            plt.legend()
+            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_OHwfnProjection_1{i-1}")
+            plt.close()
 
 class TMplots:
     def __init__(self, moleculeObj=None, OHDVRnpz=None, OODVRnpz=None, **kwargs):
@@ -183,11 +219,6 @@ class TMplots:
         """Plots the x,y,z components of the dipole surface."""
         from McUtils.Plots import GraphicsGrid, ContourPlot, ListContourPlot
         dip_struct = self.tmObj.makeDipStruct(preEmbed=preEmbed)
-        # forAnne = dip_struct.reshape((342, 5))
-        # forAnne[:, 0] = forAnne[:, 0] - forAnne[90, 0]
-        # forAnne[:, 1] = forAnne[:, 1] - forAnne[4, 1]
-        # forAnne[:, :2] = Constants.convert(forAnne[:, :2], "angstroms", to_AU=True)
-        # np.savetxt("OHOO_Dipoles_T.txt", forAnne)
         plt.close()
         roos = dip_struct[:, 0, 0]
         rohs = dip_struct[0, :, 1]
@@ -276,6 +307,7 @@ class TM2Dplots:
         if self.molecule is None:
             raise Exception("No molecule to test")
         self.TwoDnpz = TwoDnpz
+        self.TwoDResults = np.load(TwoDnpz)
         import os
         self.fig_dir = os.path.join(moleculeObj.mol_dir, "figures")
         self._tmObj = None
@@ -291,11 +323,6 @@ class TM2Dplots:
         from McUtils.Plots import GraphicsGrid, ListContourPlot
         grid = self.tmObj.TwoDDips[0]
         dips = self.tmObj.TwoDDips[1]
-        # grid[:, 0] = grid[:, 0] - grid[2900, 0]
-        # grid[:, 1] = grid[:, 1] - grid[46, 1]
-        # grid = Constants.convert(grid, "angstroms", to_AU=True)
-        # forAnne = np.column_stack((grid[:, 0], grid[:, 1], dips))
-        # np.savetxt("XHOO_Dipoles.txt", forAnne)
         mini = np.amin(dips)
         maxi = np.amax(dips)
         comp = ['X', 'Y', 'Z']
@@ -317,15 +344,15 @@ class TM2Dplots:
         comp = ["X", "Y", "Z"]
         Grid = self.tmObj.TwoDtdms[0]
         exMus = self.tmObj.TwoDtdms[1]
-        mini = np.amin(exMus["poly"])
-        maxi = np.amax(exMus["poly"])
+        mini = np.amin(exMus["dipSurf"])
+        maxi = np.amax(exMus["dipSurf"])
         for i in np.arange(3):  # make one figure per comp
             main = GraphicsGrid(ncols=2, nrows=2)
             main.image_size = (1000, 1000)
             opts = dict(
                 plot_style=dict(cmap="Purples_r", levels=10, vmin=mini, vmax=maxi),
                 axes_labels=['OO bond Distance ($\mathrm{\AA}$)', 'OH bond Distance ($\mathrm{\AA}$)'])
-            main[0, 0] = ListContourPlot(np.column_stack((Grid[:, 0], Grid[:, 1], exMus["poly"][:, i])),
+            main[0, 0] = ListContourPlot(np.column_stack((Grid[:, 0], Grid[:, 1], exMus["dipSurf"][:, i])),
                                          figure=main[0, 0], **opts)
             main[0, 0].plot_label = f'{comp[i]}-Component 2D Dipoles'
             main[0, 1] = ListContourPlot(np.column_stack((Grid[:, 0], Grid[:, 1], exMus["cubic"][:, i])),
@@ -339,6 +366,34 @@ class TM2Dplots:
             main[1, 1].plot_label = f'{comp[i]}-Component Linear TDM'
             main.colorbar = {"graphics": main[0, 0].graphics}
             plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_2D_{comp[i]}_TDMexpansions.png")
+            plt.close()
+
+    def plotDMcut(self):
+        comp = ["X", "Y", "Z"]
+        exMuTypes = ["dipSurf", "cubic", "quad", "lin"]
+        exMus = self.tmObj.TwoDtdms[1]
+        Grid = self.TwoDResults["grid"].squeeze()
+        Pot = self.TwoDResults["potential"]
+        squarepot = np.reshape(Pot, (Grid.shape[0], Grid.shape[1]))
+        mini = np.unravel_index(np.argmin(squarepot, axis=None), squarepot.shape)
+        XHgrid = Grid[0, :, 1]
+        for i, c in enumerate(comp):  # loop through components
+            mu_cuts = []
+            for t in exMuTypes:  # loop through expansions
+                # for every XH all the OO values
+                mu_grid = exMus[t][:, i].reshape((Grid.shape[0], Grid.shape[1]))
+                mu_cuts.append(mu_grid[mini[0], :])
+            colors = ["k", "darkmagenta", "mediumslateblue", "mediumblue"]
+            for j in range(len(mu_cuts)):
+                plt.plot(XHgrid, mu_cuts[j], color=colors[j], label=f"{exMuTypes[j]}")
+            plt.xlabel("XH (angstroms)")
+            plt.ylabel("Dipole Moment (Debye)")
+            plt.title(f"Dipole Expansions in the {c}-component")
+            plt.ylim(-6, 6)
+            plt.xlim(-0.2, 0.8)
+            plt.legend()
+            # plt.show()
+            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{c}_DipoleSurfCuts.png")
             plt.close()
 
 
