@@ -74,12 +74,12 @@ class ModelAnharmonic:
             data = np.loadtxt(f"{dvr_dir}/spect_{self.cluster}_fancyF.dat", skiprows=1)
         else:
             data = np.loadtxt(f"{dvr_dir}/spect_{self.cluster}.dat", skiprows=1)
-        ens = data[:, 1]
-        matel = data[:, 5]
-        idx = np.argwhere(data[:, 7] > 0.2)
-        id = idx[:3].flatten()
-        energies = ens[id]
-        matrixEl = matel[id]
+        energies = data[:, 1]
+        matrixEl = data[:, 5]
+        # idx = np.argwhere(data[:, 7] > 0.1)
+        # id = idx[:3].flatten()
+        # energies = ens[id]
+        # matrixEl = matel[id]
         return energies, matrixEl
 
 

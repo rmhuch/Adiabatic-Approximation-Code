@@ -29,37 +29,44 @@ class Spectrum:
             from transitionmoment import TransitionMoment
             self.TwoDnpz = TwoDnpz
             self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz)
+            self.DVRmethod = None
 
         elif self.spectType == "Harmonic Model":
             self.shSpectType = "harmModel"
             from transitionmoment import TransitionMoment
             self.TwoDnpz = TwoDnpz
             self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, delta=True)
+            self.DVRmethod = None
 
         elif self.spectType == "Harmonic Model w/CC":
             self.shSpectType = "harmModelCC"
             from transitionmoment import TransitionMoment
             self.TwoDnpz = TwoDnpz
             self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, delta=True)
+            self.DVRmethod = None
 
         elif self.spectType == "Cubic Harmonic":
             self.shSpectType = "cubicHarm"
             self.CHobj = CHobj
             self.tmObj = None
+            self.DVRmethod = None
 
         elif self.spectType == "Anharmonic Model":
             self.shSpectType = "anharmModel"
             self.AMPobj = AMPobj
             self.tmObj = None
+            self.DVRmethod = None
 
         elif self.spectType == "Anharmonic Model w/CC":
             self.shSpectType = "anharmModelCC"
             self.AMPobj = AMPobj
             self.tmObj = None
+            self.DVRmethod = None
 
         else:
             raise Exception("Unknown Spectrum Type")
         self._intensities = None
+        self._valuesDict = None
 
     @property
     def intensities(self):
@@ -77,6 +84,12 @@ class Spectrum:
             else:
                 self._intensities = self.gettingIntense()
         return self._intensities
+
+    @property
+    def valuesDict(self):
+        if self._valuesDict is None:
+            self._valuesDict, fig = self.make_spect()
+        return self._valuesDict
 
     def getting2DIntense(self):
         from IntensityCalculator import Intensities
@@ -195,7 +208,7 @@ class Spectrum:
         ax.set_xlabel('Energy ($\mathrm{cm}^{-1}$)')
         plt.tight_layout()
         valuesDict = {"label": label, "title": title, "matrix elements": matEls, "norm_intensities": norm_intents,
-                      "frequencies": freqs}
+                      "frequencies": freqs, "intensities": intents}
         return valuesDict, (fig, ax)
 
 

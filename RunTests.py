@@ -114,15 +114,16 @@ def makeSpectSingle(molObj, spectType, lineType, CHobj=None, AMPobj=None, freq_s
     print(SpectValues)
     return SpectValues, SpectFig
 
-def makeSpectMultiple(molObjs, spectTypes, lineTypes, freq_shifts, TDMtypes, filename, adiabatTypes,
-                      inverts=False, normalize=True, numDVRenergies=4):
+def makeSpectMultiple(molObjs, spectTypes, lineTypes, freq_shifts, TDMtypes, filename,
+                      adiabatTypes=None, inverts=False, normalize=True, numDVRenergies=4, graph=True):
     if len(molObjs) == 1:
         molObjs = molObjs*len(spectTypes)
     if isinstance(inverts, bool):
         inverts = [inverts]*len(spectTypes)
-    if len(adiabatTypes) == 1:
-        adiabatTypes = adiabatTypes*len(spectTypes)
+    if adiabatTypes is None:
+        adiabatTypes = [None]*len(spectTypes)
     SpectFig = None
+    AllSpectValues = []
     for molObj, spectType, lineType, freq_shift, TDMtype, adiabatType, invert in \
             zip(molObjs, spectTypes, lineTypes, freq_shifts, TDMtypes, adiabatTypes, inverts):
         if spectType == "Cubic Harmonic":
@@ -149,10 +150,46 @@ def makeSpectMultiple(molObjs, spectTypes, lineTypes, freq_shifts, TDMtypes, fil
             SpectValues, SpectFig = makeSpectSingle(molObj, spectType, lineType, freq_shift=freq_shift,
                                                     TDMtype=TDMtype, adiabatType=adiabatType, invert=invert,
                                                     normalize=normalize, numDVRenergies=numDVRenergies, fig=SpectFig)
+        if graph:
+            AllSpectValues.append(SpectValues)
     if filename is not None:
         SpectFig[0].savefig(filename)
+        plt.close()
     else:
-        SpectFig[0].show()
+        # SpectFig[0].show()
+        plt.close()
+    if graph:
+        makeCompPlot(AllSpectValues)
+    return AllSpectValues
+
+def makeCompPlot(allSpectValues):
+    import matplotlib.pyplot as plt
+    # 2D DM full, Ad TDM full, HMP DM full, 2D DM quad, Ad TDM quad, HMP DM quad, 2D DM lin, Ad TDM lin, HMP DM lin
+    y = np.zeros(len(allSpectValues))
+    for i in range(len(allSpectValues)):
+        vals = allSpectValues[i]["norm_intensities"]
+        y[i] = (vals[1]/vals[0])*100
+
+    barWidth = 0.15
+    full = y[:3]
+    quad = y[3:6]
+    lin = y[6:]
+
+    r1 = np.arange(len(full))
+    r2 = [x + barWidth for x in r1]
+    r3 = [x + barWidth for x in r2]
+
+    plt.bar(r1, full, color="violet", width=barWidth, edgecolor='white', label="Full Dipole Expression")
+    plt.bar(r2, quad, color="darkviolet", width=barWidth, edgecolor='white', label="Quadratic Dipole Expression")
+    plt.bar(r3, lin, color="darkblue", width=barWidth, edgecolor='white', label="Linear Dipole Expression")
+    # should be able to change from plt.bar to plt.scatter?
+    
+    plt.ylabel(r"$\dfrac{I_{1, 0}}{I_{0, 0}}$", rotation=0, fontweight='bold', fontsize=16)
+    plt.xlabel('Potential Energy Coupling', fontweight='bold', fontsize=12)
+    plt.xticks([r + barWidth for r in range(len(full))], ['Full Coupling (2D)', 'Adiabatic Coupling', 'No Coupling'])
+
+    plt.legend()
+    plt.show()
 
 # def makeSpectFile(molObj, SpectValues):
 #     if savefile:
@@ -184,46 +221,19 @@ if __name__ == '__main__':
     runTMplots(dimer)
     # runTMplots(trimer)
 
-    # ST = ["2D w/TDM"]
-    # LT = ["C0-", "C6-", "C5-", "C8-", "C7-", "C4-", "C3-"]
-    # LT1 = ["C0-", "C6-", "C5-", "C4-", "C3-"]
-    # LT2 = ["C0-", "C5-", "C8-", "C7-"]
-    # FS = [-30, -20, -10, 0, 10, 20, 30]
-    # FS1 = [-20, -10, 0, 10, 20]
-    # FS2 = [-15, -5, 5, 15]
-    # TT = ["Dipole Surface", "Cubic", "Quadratic", "Quadratic OH only", "Quadratic Bilinear", "Linear", "Linear OH only"]
-    # # TT1 = ["Dipole Surface", "Cubic", "Quadratic", "Linear", "Linear OH only"]
-    # # TT2 = ["Dipole Surface", "Quadratic", "Quadratic OH only", "Quadratic Bilinear"]
-    # fn2 = "di2DComponentSpectrum_all.png"
-    # fn3 = "tri2DComponentSpectrum_all.png"
-    # fn4 = "tet2DComponentSpectrum_all.png"
-    # makeSpectMultiple([dimer], ST*len(TT), LT, FS, TT, fn2)
-    # makeSpectMultiple([trimer], ST*len(TT), LT, FS, TT, fn3)
-    # makeSpectMultiple([tetramer], ST*len(TT), LT, FS, TT, fn4)
-    ST1D = ["Transition Dipole Moment"]
-    LT1D = ["C1-", "C6-", "C5-", "C4-", "C3-"]
-    FS1D = [-20, -10, 0, 10, 20]
-    TT1D = ["Poly", "Cubic", "Quadratic", "Linear", "Constant"]
-    fn1D2 = "di1DHarmonic_ComponentSpectrum_all.png"
-    fn1D3 = "tri1DHarmonic_ComponentSpectrum_all.png"
-    fn1D4 = "tet1DHarmonic_ComponentSpectrum_all.png"
-    # makeSpectMultiple([dimer1D], ST1D*len(TT1D), LT1D, FS1D, TT1D, fn1D2, anharmonics=False)
-    # makeSpectMultiple([trimer1D], ST1D*len(TT1D), LT1D, FS1D, TT1D, fn1D3, anharmonics=False)
-    # makeSpectMultiple([tetramer1D], ST1D*len(TT1D), LT1D, FS1D, TT1D, fn1D4, anharmonics=False)
-
-    # molObjs = [trimer1D, trimer, trimer1D, trimer1D, trimer, trimer]
-    # # CH, XH/OO 2D, A OH/OO 2D, A CC OH/OO 2D, H OH/OO 2D, H CC OH/OO 2D
-    LT = ["C2-", "C1-", "C3-", "C6-"]
-    # a a/h h/a h
-    aT = ["anharmonic", "anharm/harm", "harm/anharm", "harmonic"]
-    ST = ["Transition Dipole Moment"]*len(LT)
+    molObjs = [tetramer, tetramer1D, tetramer]*3
+    # molObjsT = [trimer1D, trimer, trimer1D, trimer1D, trimer, trimer]
+    # CH, XH/OO 2D, A OH/OO 2D, A CC OH/OO 2D, H OH/OO 2D, H CC OH/OO 2D
+    LT = ["C0-", "C1-", "C3-", "C4-", "C6-", "C2-", "C5-", "C7-", "C8-"]
+    aT = [None, "anharmonic"]*3
+    # 2D DM full, Ad TDM full, HMP DM full, 2D DM quad, Ad TDM quad, HMP DM quad, 2D DM lin, Ad TDM lin, HMP DM lin
+    STm = ["2D w/TDM", "Transition Dipole Moment", "2D w/TDM"]*3
     # molObjsT = [tetramer1D] * len(LT)
-    FS = [0]*len(LT)
-    TT = ["Poly"]*len(LT)
-    fn = "TetAdiabatVarieties_Spectrum.png"
-    # makeSpectMultiple([tetramer1D], ST, LT, FS, TT, fn, adiabatTypes=aT)
-    fn1 = "TriAdiabatVarieties_Spectrum.png"
-    # makeSpectMultiple([trimer1D], ST, LT, FS, TT, fn1, adiabatTypes=aT)
-    fn2 = "DiAdiabatVarieties_Spectrum.png"
-    # makeSpectMultiple([dimer1D], ST, LT, FS, TT, fn2, adiabatTypes=aT)
- 
+    FS = [0]*len(STm)
+    TT = ["Dipole Surface", "Poly", "Dipole Surface", "Quadratic", "Quadratic", "Quadratic",
+          "Linear OH only", "Constant", "Linear OH only"]
+    makeSpectMultiple(molObjs, STm, LT, FS, TT, filename=None, adiabatTypes=aT)
+    # makeSpectMultiple(molObjsT, ST, LT, FS, TT, "TrimodelPotentials_Spectrum.png")
+    # makeSpectSingle(dimer1D, "Transition Dipole Moment", "C7-", TDMtype="Constant")
+    # makeSpectSingle(dimer1D, "Franck-Condon", "C7-")
+
