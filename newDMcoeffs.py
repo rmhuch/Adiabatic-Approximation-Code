@@ -8,9 +8,9 @@ from Converter import Constants
 
 def pull_data():
     from RunTests import makeMolecule
-    diEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "inversion_atom": 3}
-    molObj = makeMolecule("H5O2pls", diEmbedDict)
-    FDlog = os.path.join(molObj.mol_dir, "Finite Scan Data", "2D_finiteSPEdi_008_Dcurrent_sp2.log")
+    tetEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "outerO1": 5, "outerO2": 8, "inversion_atom": 8}
+    molObj = makeMolecule("H9O4pls", tetEmbedDict)
+    FDlog = os.path.join(molObj.mol_dir, "Finite Scan Data", "logs", "2D_finiteSPEtet_008_DCurrent.log")
     gaussdat = LogInterpreter(FDlog, moleculeObj=molObj)
     return molObj, gaussdat
 
@@ -54,8 +54,7 @@ def calc_derivs(fd_ohs, fd_oos, FDgrid, FDvalues):
 
 def calc_coefs():
     # coords = np.load("FDH9O4pls_rotcoords.npy")
-    # dips = np.load("FDH9O4pls_rotdips.npy")
-    dips = np.load("FDH5O2pls_rotdips.npy")
+    dips = np.load(os.path.join(mainD, "structures", "FDH9O4pls_rotdips.npy"))
     molObj, gaussdat = pull_data()
     scancoords = np.array(list(gaussdat.cartesians.keys()))
     sort_ind = np.lexsort((scancoords[:, 1], scancoords[:, 0]))
@@ -69,16 +68,18 @@ def calc_coefs():
     FDvaluesy = np.reshape(sort_dips[:, 1], (5, 5))
     FDvaluesz = np.reshape(sort_dips[:, 2], (5, 5))
     eqDipole = np.array((FDvaluesx[2, 2], FDvaluesy[2, 2], FDvaluesz[2, 2]))
-
     xderivs = calc_derivs(fd_ohs, fd_oos, FDgrid, FDvaluesx)
     yderivs = calc_derivs(fd_ohs, fd_oos, FDgrid, FDvaluesy)
     zderivs = calc_derivs(fd_ohs, fd_oos, FDgrid, FDvaluesz)
     derivs = {'x': xderivs, 'y': yderivs, 'z': zderivs}
-    np.savez("DipCoefsH502pls_smallscan.npz", x=xderivs, y=yderivs, z=zderivs, eqDip=eqDipole)
+    fn = os.path.join(mainD, "Finite Scan Data", "DipCoefsH9O4pls_smallscan.npz")
+    np.savez(fn, x=xderivs, y=yderivs, z=zderivs, eqDip=eqDipole)
     print("eqDipole:", eqDipole)
     return derivs
 
 
 if __name__ == '__main__':
-    embed()
+    udrive = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    mainD = os.path.join(udrive, "H9O4pls")
+    # embed()
     calc_coefs()

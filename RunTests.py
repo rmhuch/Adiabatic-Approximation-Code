@@ -251,7 +251,7 @@ if __name__ == '__main__':
           "Linear OH only", "Linear OH only", "Linear OH only"]
     TTd = ["Dipole Surface", "Dipole Surface", "Quadratic OH only", "Quadratic OH only",
            "Linear OH only", "Linear OH only"]
-    makeSpectMultiple(molObjsT, STm, LT, FS, TT, filename=None, adiabatTypes=aT, graph=False)
+    # makeSpectMultiple(molObjsT, STm, LT, FS, TT, filename=None, adiabatTypes=aT, graph=False)
     # makeSpectMultiple(molObjsD, STmd, LTd, FSd, TTd, filename=None, adiabatTypes=aTd, graph=False)
-    makeSpectSingle(trimer1D, "Franck-Condon", "C0-", TDMtype=None, adiabatType="anharmonic")
+    makeSpectSingle(dimer1D, "Franck-Condon", "C0-", TDMtype=None, adiabatType="anharmonic")
 

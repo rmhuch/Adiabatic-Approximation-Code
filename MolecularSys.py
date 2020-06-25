@@ -257,16 +257,13 @@ class MolecularOperations:
             dop = self.logData.dipoles
         all_dips = np.array(list(dop.values()))
         all_dips = all_dips.reshape((len(all_coords), 1, 3))
-        print("original: ", all_dips[12, :])
         if centralO_atom is None:
             raise Exception("No origin atom defined")
         # shift to origin
         o_coords = all_coords - all_coords[:, np.newaxis, centralO_atom]
         o_dips = all_dips - all_coords[:, np.newaxis, centralO_atom]
-        print("origin shift: ", o_dips[12, :])
         # rotation to x-axis
         r1_coords, r1_dips = self.rot1(o_coords, o_dips, xAxis_atom)
-        print("x axis rotation: ", r1_dips[12, :])
         if xyPlane_atom is None and inversion_atom is None:
             # returns coords rotated to x-axis
             rot_coords = r1_coords
@@ -283,12 +280,8 @@ class MolecularOperations:
         else:
             # returns coords rotated to xyplane and inverted about a designated atom
             r2_coords, r2_dips = self.rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)  # rotation to xy-plane
-            print("xy rotation: ", r2_dips[12, :])
             rot_coords, rot_dips = self.inverter(r2_coords, r2_dips, inversion_atom)  # inversion of designated atom
-            print("inversion dip: ", rot_dips[12, :])
             dipadedodas = rot_dips.reshape(len(all_coords), 3)
-        np.save(f"FD{self.molecule.MoleculeName}_rotdips.npy", dipadedodas)
-        np.save(f"FD{self.molecule.MoleculeName}_rotcoords.npy", rot_coords)
         # self.get_xyz(f"{self.molecule.MoleculeName}_{self.molecule.method}_rotcoords.xyz", rot_coords,
         #              self.atom_str)
         return rot_coords, dipadedodas  # bohr & debye

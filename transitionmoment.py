@@ -128,6 +128,7 @@ class TransitionMoment:
         return grid, new_dips  # bohr & debye
 
     def calc_all2Dmus(self):
+        import os
         from TDMexpansions import TM2Dexpansion
         Grid = self.TwoDDips[0]  # oo/xh bohr
         oos = len(np.unique(Grid[:, 0]))
@@ -150,10 +151,10 @@ class TransitionMoment:
                 FDvalues[j, i, :] = squaredips[v, pickrangey, j]
 
         params = dict()
-        # params["eqDipole"] = np.array((FDvalues[0, 2, 2], FDvalues[1, 2, 2], FDvalues[2, 2, 2]))
-        # params["eqDipole"] = np.array((0.42059027, 1.597753, -0.01960174))  # place in EQ Dipole from the small scan
-        params["eqDipole"] = np.array((0.60520204, 0.96477493, 1.51323868))  # EQ Dipole from the small scan (tri)
-        # print(params["eqDipole"])
+        coefDir = os.path.join(self.molecule.mol_dir, "Finite Scan Data")
+        derivs = np.load(f"{coefDir}/DipCoefs{self.molecule.MoleculeName}_smallscan.npz", allow_pickle=True)
+        newDerivs = {k: derivs[k].item() for k in ["x", "y", "z"]}
+        params["eqDipole"] = derivs["eqDip"]  # place in EQ Dipole from the small scan
         fd_ohs = square[pickrangex[2], pickrangey, 1]
         fd_oos = square[pickrangex, pickrangey[2], 0]
         if self.delta:
@@ -163,27 +164,15 @@ class TransitionMoment:
             params["delta_roh"] = Grid[:, 1] - fd_ohs[2]
             params["delta_Roo"] = Grid[:, 0] - fd_oos[2]
 
-        # xderivs = self.calc_derivs(fd_ohs, fd_oos, FDgrid, FDvalues[0])
-        # yderivs = self.calc_derivs(fd_ohs, fd_oos, FDgrid, FDvalues[1])
-        # zderivs = self.calc_derivs(fd_ohs, fd_oos, FDgrid, FDvalues[2])
-        # derivs = {'x': xderivs, 'y': yderivs, 'z': zderivs}
-        # np.savez("DipCoefstest.npz", x=xderivs, y=yderivs, z=zderivs)
-
-        derivs = np.load("DipCoefsH9O4pls_smallscan.npz", allow_pickle=True)
-        newDerivs = {k: derivs[k].item() for k in ["x", "y", "z"]}
-        # newDerivs = {k:{l:1 for l in newDerivs[k]} for k in newDerivs}
-        # print("x-derivs:", newDerivs["x"])
-        # print("y-derivs:", newDerivs["y"])
-        # print("z-derivs:", newDerivs["z"])
-        twodeetdms = dict()
-        twodeetdms["dipSurf"] = Dips
-        twodeetdms["cubic"] = TM2Dexpansion.cubic_DM(params, newDerivs)
-        twodeetdms["quad"] = TM2Dexpansion.quad_DM(params, newDerivs)
-        twodeetdms["quadOH"] = TM2Dexpansion.quadOH_DM(params, newDerivs)
-        twodeetdms["quadbilin"] = TM2Dexpansion.quadBILIN_DM(params, newDerivs)
-        twodeetdms["lin"] = TM2Dexpansion.lin_DM(params, newDerivs)
-        twodeetdms["linOH"] = TM2Dexpansion.linOH_DM(params, newDerivs)
-        return Grid, twodeetdms
+        twodeedms = dict()
+        twodeedms["dipSurf"] = Dips
+        twodeedms["cubic"] = TM2Dexpansion.cubic_DM(params, newDerivs)
+        twodeedms["quad"] = TM2Dexpansion.quad_DM(params, newDerivs)
+        twodeedms["quadOH"] = TM2Dexpansion.quadOH_DM(params, newDerivs)
+        twodeedms["quadbilin"] = TM2Dexpansion.quadBILIN_DM(params, newDerivs)
+        twodeedms["lin"] = TM2Dexpansion.lin_DM(params, newDerivs)
+        twodeedms["linOH"] = TM2Dexpansion.linOH_DM(params, newDerivs)
+        return Grid, twodeedms
 
     def make1D_DipStruct(self):
         grid, twodee_DMs = self.TwoD_dms
