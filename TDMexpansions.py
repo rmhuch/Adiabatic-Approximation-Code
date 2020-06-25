@@ -2,7 +2,7 @@ import numpy as np
 
 class TM2Dexpansion:
     @classmethod
-    def cubicTDM(cls, params, derivs):
+    def cubic_DM(cls, params, derivs):
         eqDip = params["eqDipole"]
         delta_roh = params["delta_roh"]
         delta_Roo = params["delta_Roo"]
@@ -15,12 +15,12 @@ class TM2Dexpansion:
                            derivs[v[i]]["mixedOHOO"]*delta_Roo*delta_roh + \
                            derivs[v[i]]["mixedOHOHOO"]*(delta_roh**2)*(1/2)*delta_Roo + \
                            derivs[v[i]]["mixedOHOOOO"]*delta_roh*(delta_Roo**2)*(1/2) + \
-                           derivs[v[i]]["thirdOH"]*(delta_roh**3)*(1/3) + \
-                           derivs[v[i]]["thirdOO"]*(delta_Roo**3)*(1/3)
+                           derivs[v[i]]["thirdOH"]*(delta_roh**3)*(1/6) + \
+                           derivs[v[i]]["thirdOO"]*(delta_Roo**3)*(1/6)
         return cubic_mus
 
     @classmethod
-    def quadTDM(cls, params, derivs):
+    def quad_DM(cls, params, derivs):
         eqDip = params["eqDipole"]
         delta_roh = params["delta_roh"]
         delta_Roo = params["delta_Roo"]
@@ -34,7 +34,7 @@ class TM2Dexpansion:
         return quad_mus
 
     @classmethod
-    def quadBILINtdm(cls, params, derivs):
+    def quadBILIN_DM(cls, params, derivs):
         eqDip = params["eqDipole"]
         delta_roh = params["delta_roh"]
         delta_Roo = params["delta_Roo"]
@@ -46,7 +46,7 @@ class TM2Dexpansion:
         return biquad_mus
 
     @classmethod
-    def quadOHtdm(cls, params, derivs):
+    def quadOH_DM(cls, params, derivs):
         eqDip = params["eqDipole"]
         delta_roh = params["delta_roh"]
         delta_Roo = params["delta_Roo"]
@@ -58,7 +58,7 @@ class TM2Dexpansion:
         return ohquad_mus
 
     @classmethod
-    def linTDM(cls, params, derivs):
+    def lin_DM(cls, params, derivs):
         eqDip = params["eqDipole"]
         delta_roh = params["delta_roh"]
         delta_Roo = params["delta_Roo"]
@@ -69,7 +69,7 @@ class TM2Dexpansion:
         return lin_mus
 
     @classmethod
-    def constTDM(cls, params, derivs):
+    def linOH_DM(cls, params, derivs):
         eqDip = params["eqDipole"]
         delta_roh = params["delta_roh"]
         lin_mus = np.zeros((*delta_roh.shape, 3))

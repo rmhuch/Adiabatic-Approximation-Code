@@ -19,8 +19,9 @@ class Spectrum:
             from transitionmoment import TransitionMoment
             self.OODVRnpz = OODVRnpz
             self.OHDVRnpz = OHDVRnpz
+            self.TwoDnpz = TwoDnpz
             self.DVRmethod = adiabatType
-            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D",
+            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="1D", TwoDnpz=self.TwoDnpz,
                                           OHDVRnpz=self.OHDVRnpz, OODVRnpz=self.OODVRnpz)
             self.shSpectType = "TDM"
 
@@ -95,7 +96,7 @@ class Spectrum:
         from IntensityCalculator import Intensities
         twoDres = np.load(self.TwoDnpz)
         twoDwfns = twoDres["wfns_array"]
-        tdms = self.tmObj.TwoDtdms[1]
+        tdms = self.tmObj.TwoD_dms[1]
         if self.TDMtype == "Dipole Surface":
             trans_mom = tdms["dipSurf"]
         elif self.TDMtype == "Cubic":
@@ -109,7 +110,7 @@ class Spectrum:
         elif self.TDMtype == "Linear":
             trans_mom = tdms["lin"]
         elif self.TDMtype == "Linear OH only":
-            trans_mom = tdms["const"]
+            trans_mom = tdms["linOH"]
         else:
             raise Exception("Can't determine TDM type.")
         intensities = Intensities.TwoD(twoDwfns, trans_mom, gridpoints=twoDres["grid"])
@@ -125,16 +126,20 @@ class Spectrum:
         es_wfn = ooWfns[1, :, 0:3]
         if self.tmObj is not None:  # TDM
             tdms = self.tmObj.tdms[1]
-            if self.TDMtype == "Poly":
-                trans_mom = tdms["poly"]
+            if self.TDMtype == "Dipole Surface":
+                trans_mom = tdms["dipSurf"]
             elif self.TDMtype == "Cubic":
                 trans_mom = tdms["cubic"]
             elif self.TDMtype == "Quadratic":
                 trans_mom = tdms["quad"]
+            elif self.TDMtype == "Quadratic OH only":
+                trans_mom = tdms["quadOH"]
+            elif self.TDMtype == "Quadratic Bilinear":
+                trans_mom = tdms["quadbilin"]
             elif self.TDMtype == "Linear":
                 trans_mom = tdms["lin"]
-            elif self.TDMtype == "Constant":
-                trans_mom = tdms["const"]
+            elif self.TDMtype == "Linear OH only":
+                trans_mom = tdms["linOH"]
             else:
                 raise Exception("Can't determine TDM type.")
             intents = Intensities.TDM(gs_wfn, es_wfn, trans_mom)
@@ -162,12 +167,12 @@ class Spectrum:
             intents = self.intensities * freqs
         elif self.spectType == "2D w/TDM":
             twoDres = np.load(self.TwoDnpz)
-            title = f"{self.molecule.method} scan {self.spectType} Spectrum Values: "
+            title = f"{self.spectType} {self.TDMtype} Spectrum Values: "
             freqs = twoDres["energy_array"][1:] - twoDres["energy_array"][0]
             matEls = self.intensities
             intents = self.intensities * freqs
         else:
-            title = f"{self.molecule.method} scan {self.DVRmethod} OH/OO {self.spectType} Spectrum Values: "
+            title = f"{self.DVRmethod} OH/OO {self.spectType} {self.TDMtype} Spectrum Values: "
             OODVRres = np.load(self.OODVRnpz)
             freqs = OODVRres["energy_array"][1, :3] - OODVRres["energy_array"][0, 0]
             matEls = self.intensities

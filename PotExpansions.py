@@ -17,7 +17,7 @@ class CubicHarmonic:
         muOO = mO / 2
         freqoh = Constants.convert(self.omegaOH, "wavenumbers", to_AU=True)
         muOH = ((2 * mO) * mH) / ((2 * mO) + mH)
-        fs_dir = os.path.join(self.molecule.mol_dir, "Finite Scan Data")
+        fs_dir = os.path.join(self.molecule.mol_dir, "Finite Scan Data", "twoD")
         if self.molecule.MoleculeName == "H9O4pls":
             finite_vals = np.loadtxt(f"{fs_dir}/2D_finiteSPEtet_01_008.dat", skiprows=7)
         elif self.molecule.MoleculeName == "H7O3pls":
@@ -71,9 +71,9 @@ class ModelAnharmonic:
         import os
         dvr_dir = os.path.join(self.molecule.mol_dir, "DVR Results")
         if self.CC:
-            data = np.loadtxt(f"{dvr_dir}/spect_{self.cluster}_fancyF.dat", skiprows=1)
+            data = np.loadtxt(f"{dvr_dir}/AMP_{self.cluster}_fancyF.dat")
         else:
-            data = np.loadtxt(f"{dvr_dir}/spect_{self.cluster}.dat", skiprows=1)
+            data = np.loadtxt(f"{dvr_dir}/AMP_{self.cluster}.dat", skiprows=1)
         energies = data[:, 1]
         matrixEl = data[:, 5]
         # idx = np.argwhere(data[:, 7] > 0.1)
@@ -142,7 +142,7 @@ class ModelHarmonic:
         from Converter import Constants
         import os
         # load in finite difference scan data and compute Force constants in OH and OO
-        fs_dir = os.path.join(self.molecule.mol_dir, "Finite Scan Data")
+        fs_dir = os.path.join(self.molecule.mol_dir, "Finite Scan Data", "twoD")
         if self.molecule.MoleculeName == "H9O4pls":
             finite_vals = np.loadtxt(f"{fs_dir}/2D_finiteSPEtet_01_008.dat", skiprows=7)
         elif self.molecule.MoleculeName == "H7O3pls":
@@ -218,7 +218,7 @@ class ModelHarmonic:
             V_HOwave = Constants.convert(V_HO, "wavenumbers", to_AU=False)
             V_HOwave[V_HOwave > 25000] = 25000
             plt.contour(self.grid[0], self.grid[1], V_HOwave, colors='k', levels=10)
-            plt.contourf(self.grid[0], self.grid[1], V_HOwave, cmap='Purples_r', levels=10)
+            plt.contourf(self.grid[0], self.grid[1], V_HOwave, cmap='viridis', levels=10)
             plt.colorbar()
             plt.xlabel("Delta OO")
             plt.ylabel("Delta OH")

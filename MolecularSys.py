@@ -4,7 +4,7 @@ import os
 
 class Molecule:
     def __init__(self, MoleculeName=None, atom_str=None, method=None, dimension=None,
-                 scanCoords=None, embed_dict=None, **kwargs):
+                 scanCoords=None, embed_dict=None, OH=False, **kwargs):
         self.MoleculeName = MoleculeName
         if MoleculeName is None:
             raise Exception("No Molecule to build.")
@@ -25,6 +25,7 @@ class Molecule:
         self.dimension = dimension
         self.scanCoords = scanCoords
         self.embed_dict = embed_dict
+        self.OH = OH
         self._mol_dir = None
         self._scanLogs = None
         self._logData = None
@@ -78,10 +79,10 @@ class Molecule:
     def get_2Dlogs(self):
         """For given method, pulls log files from udrive file system."""
         import glob
-        if self.dimension == "2D":
-            scan_dir = os.path.join(self.mol_dir, "2D Scans XH")
-        else:
+        if self.OH:
             scan_dir = os.path.join(self.mol_dir, "2D Scans OH")
+        else:
+            scan_dir = os.path.join(self.mol_dir, "2D Scans XH")
         if self.method == "rigid":
             allscans = list(sorted(glob.glob(os.path.join(scan_dir, "*_rigid_*.log"))))
         elif self.method == "partrig":
@@ -109,7 +110,7 @@ class Molecule:
 
 
 class MolecularOperations:
-    def __init__(self, moleculeObj=None, **kwargs):
+    def __init__(self, moleculeObj=None, LogData=None, **kwargs):
         self.molecule = moleculeObj
         if self.molecule.embed_dict is None:
             raise Exception("No embedding parameters set.")
@@ -117,7 +118,10 @@ class MolecularOperations:
             self.embed_dict = self.molecule.embed_dict
         self.method = self.molecule.method
         self.atom_str = self.molecule.atom_str
-        self.logData = moleculeObj.logData
+        if LogData is not None:
+            self.logData = LogData
+        else:
+            self.logData = moleculeObj.logData
         self._coords = None
         self._embeddedCoords = None
         self._embeddedDips = None
@@ -239,7 +243,6 @@ class MolecularOperations:
 
     @staticmethod
     def inverter(coords, dips, inversion_atom):
-        """ check all of this.... I don't think it is logical.. hopefully with new scans this won't even be a problem"""
         coords[:, :, -1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
         dips[:, :, -1] *= np.sign(coords[:, inversion_atom, -1])[:, np.newaxis]
         return coords, dips
@@ -248,16 +251,22 @@ class MolecularOperations:
                        outerO1=None, outerO2=None, inversion_atom=None, **params):
         from Converter import Constants
         all_coords = Constants.convert(self.coords, "angstroms", to_AU=True)
-        dop = self.logData.dipoles
+        if len(self.logData.logs) == 1:
+            dop = self.logData.get_dips(optimized=True)
+        else:
+            dop = self.logData.dipoles
         all_dips = np.array(list(dop.values()))
-        all_dips = all_dips.reshape(len(all_coords), 1, 3)
+        all_dips = all_dips.reshape((len(all_coords), 1, 3))
+        print("original: ", all_dips[12, :])
         if centralO_atom is None:
             raise Exception("No origin atom defined")
         # shift to origin
         o_coords = all_coords - all_coords[:, np.newaxis, centralO_atom]
         o_dips = all_dips - all_coords[:, np.newaxis, centralO_atom]
+        print("origin shift: ", o_dips[12, :])
         # rotation to x-axis
         r1_coords, r1_dips = self.rot1(o_coords, o_dips, xAxis_atom)
+        print("x axis rotation: ", r1_dips[12, :])
         if xyPlane_atom is None and inversion_atom is None:
             # returns coords rotated to x-axis
             rot_coords = r1_coords
@@ -274,7 +283,12 @@ class MolecularOperations:
         else:
             # returns coords rotated to xyplane and inverted about a designated atom
             r2_coords, r2_dips = self.rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)  # rotation to xy-plane
+            print("xy rotation: ", r2_dips[12, :])
             rot_coords, rot_dips = self.inverter(r2_coords, r2_dips, inversion_atom)  # inversion of designated atom
+            print("inversion dip: ", rot_dips[12, :])
             dipadedodas = rot_dips.reshape(len(all_coords), 3)
-        self.get_xyz(f"{self.molecule.MoleculeName}_{self.molecule.method}_rotcoords.xyz", rot_coords, self.atom_str)
-        return rot_coords, dipadedodas
+        np.save(f"FD{self.molecule.MoleculeName}_rotdips.npy", dipadedodas)
+        np.save(f"FD{self.molecule.MoleculeName}_rotcoords.npy", rot_coords)
+        # self.get_xyz(f"{self.molecule.MoleculeName}_{self.molecule.method}_rotcoords.xyz", rot_coords,
+        #              self.atom_str)
+        return rot_coords, dipadedodas  # bohr & debye

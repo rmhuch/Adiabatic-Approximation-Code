@@ -111,7 +111,7 @@ class AdiabaticApprox:
             wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
         epsilon_pots = np.column_stack((roos, energies_array[:, :4]))
         npz_filename = os.path.join(self.DVRdir, f"{self.method}_HarmOHDVR_energies{self.desiredEnergies}.npz")
-        # data saved in wavenumbers/angstroms with potential shifted BACK to OH scan points
+        # data saved in wavenumbers/angstroms
         wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns, pot_array=potential_array)
         np.savez(npz_filename, method="harm", potential=potential_array, epsilonPots=epsilon_pots,
                  wfns_array=wavefuns_array)
@@ -121,7 +121,7 @@ class AdiabaticApprox:
         """ Runs anharmonic DVR over the OH coordinate at every OO value."""
         from PotentialHandlers import Potentials1D
         dvr_1D = DVR("ColbertMiller1D")
-        cut_dict = self.logData.cut_dictionary(midpoint=True)
+        cut_dict = self.logData.cut_dictionary()
         roos = np.array(list(cut_dict.keys()))
         potential_array = np.zeros((len(cut_dict), self.NumPts, 2))
         energies_array = np.zeros((len(cut_dict), self.desiredEnergies))
@@ -136,15 +136,15 @@ class AdiabaticApprox:
                              divs=self.NumPts, domain=(mini, maxi), num_wfns=self.desiredEnergies)
             potential = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
             grid = Constants.convert(res.grid, "angstroms", to_AU=False)
-            shiftgrid = (n/2) + grid
-            potential_array[j, :, 0] = shiftgrid
+            # shiftgrid = (n/2) + grid
+            potential_array[j, :, 0] = grid  # shiftgrid
             potential_array[j, :, 1] = potential
             ens = Constants.convert(res.wavefunctions.energies, "wavenumbers", to_AU=False)
             energies_array[j, :] = ens
             wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
         epsilon_pots = np.column_stack((roos, energies_array[:, :4]))
         npz_filename = os.path.join(self.DVRdir, f"{self.method}_AnharmOHDVR_energies{self.desiredEnergies}.npz")
-        # data saved in wavenumbers/angstroms with potential shifted BACK to OH scan points
+        # data saved in wavenumbers/angstroms
         wavefuns_array = self.wfn_flipper(wavefunctions_array, plotPhasedWfns=plotPhasedWfns, pot_array=potential_array)
         np.savez(npz_filename, method="anharm", potential=potential_array, epsilonPots=epsilon_pots,
                  wfns_array=wavefuns_array)

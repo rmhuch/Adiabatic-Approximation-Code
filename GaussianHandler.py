@@ -41,10 +41,10 @@ class LogInterpreter:
     @property
     def cartesians(self):
         if self._cartesians is None:
-            if self.molecule.dimension == "2D":
-                self._cartesians = self.get_scoords(midpoint=True)
-            else:
+            if len(self.logs) == 1:
                 self._cartesians = self.get_scoords()
+            else:
+                self._cartesians = self.get_scoords(midpoint=True)
         return self._cartesians
 
     @property
@@ -56,7 +56,7 @@ class LogInterpreter:
     @property
     def zmatrices(self):
         if self._zmatrices is None:
-            self._atomnum, self._zmatrices = self.get_zmats(**self.params)
+            self._atomnum, self._zmatrices = self.get_zmats()  # **self.params
         return self._zmatrices
 
     @property
@@ -77,49 +77,70 @@ class LogInterpreter:
         full_grid = np.array(list(self.cartesians.keys()))
         if optimized is None:
             raise Exception("No energy type specified.")
-        if self.molecule.dimension == "2D":
-            for log in self.logs:
-                if optimized:
-                    with GaussianLogReader(log) as reader:
-                        parse = reader.parse("OptimizedScanEnergies")
-                    energy_array, coords = parse["OptimizedScanEnergies"]
-                    roo = coords['Roo12']
-                    roh = coords['MrOH']
-                    if 'far' in log:
-                        roh = -roh
-                    crds.append(np.column_stack((roo, roh)))
-                    ens.append(energy_array)
-                else:
-                    with GaussianLogReader(log) as reader:
-                        parse = reader.parse("ScanEnergies")
-                    vals = parse["ScanEnergies"]["values"][:, 3]  # N MrOH SCF MP2
-                    ens.append(vals)
-            energy = np.concatenate(ens)
-            if len(crds) > 0:
-                coord_array = np.concatenate(crds)
-                idx = np.lexsort((coord_array[:, 0], coord_array[:, 1]))
-                energy = energy[idx]
-                idx = np.lexsort((full_grid[:, 0], full_grid[:, 1]))
-                full_grid = full_grid[idx]
+        for log in self.logs:
+            if optimized:
+                with GaussianLogReader(log) as reader:
+                    parse = reader.parse("OptimizedScanEnergies")
+                energy_array, coords = parse["OptimizedScanEnergies"]
+                roo = coords['Roo12']
+                roh = coords['MrOH']
+                if 'far' in log:
+                    roh = -roh
+                crds.append(np.column_stack((roo, roh)))
+                ens.append(energy_array)
+            else:
+                with GaussianLogReader(log) as reader:
+                    parse = reader.parse("ScanEnergies")
+                vals = parse["ScanEnergies"]["values"][:, 3]  # N MrOH SCF MP2
+                ens.append(vals)
+        energy = np.concatenate(ens)
+        if len(crds) > 0:
+            coord_array = np.concatenate(crds)
+            idx = np.lexsort((coord_array[:, 0], coord_array[:, 1]))
+            energy = energy[idx]
+            idx = np.lexsort((full_grid[:, 0], full_grid[:, 1]))
+            full_grid = full_grid[idx]
 
-            energyF = np.column_stack((full_grid, energy))
-            idx = np.lexsort((full_grid[:, 1], full_grid[:, 0]))
-            out = energyF[idx]
+        energyF = np.column_stack((full_grid, energy))
+        idx = np.lexsort((full_grid[:, 1], full_grid[:, 0]))
+        out = energyF[idx]
+        if shift:
+            out[:, 2:] -= min(out[:, 2:])  # shift gaussian numbers to zero HERE to avoid headaches later.
         else:
-            for log in self.logs:
-                if optimized:
-                    with GaussianLogReader(log) as reader:
-                        parse = reader.parse("OptimizedScanEnergies")
-                    energy_array, coords = parse["OptimizedScanEnergies"]
-                    roo = coords['Roo12']
-                    roh = coords['Roh']
-                    ens.append(np.column_stack((roo, roh, energy_array)))
-                else:
-                    with GaussianLogReader(log) as reader:
-                        parse = reader.parse("ScanEnergies")
-                    just_the_val = parse["ScanEnergies"]["values"][:, 1:]  # returns only the MP2 energy
-                    just_the_val = np.concatenate((just_the_val[:, :2], just_the_val[:, [-1]]), axis=1)
-                    ens.append(just_the_val)
+            pass
+        if rawenergies:
+            energyArray = out
+        else:
+            sq_grid, sq_vals = Interpolator(out[:, :2], out[:, 2], interpolation_function=lambda: "ignore").\
+                regular_grid(interp_kind='cubic', fillvalues=True)
+            energyArray = np.column_stack((sq_grid, sq_vals))
+        return energyArray
+
+    def get_electronic_energyOH(self, shift=True, optimized=None, rawenergies=False, **params):
+        """USE IF WE EVER NEED OH SCANS BACK
+         Pulls Energies from the "Summary" portion of a log file. Shifts the potential energy to 0 to avoid
+         problems with DVR later and extrapolates to a regular sized rudy grid to avoid problems with
+         interpolation /sizing/ etc.
+        :return: an array (col0: scancoord_1(ang), col1: scancoord_2(ang), col2: energy(shifted hartrees))
+        :rtype: np.ndarray """
+        from McUtils.Zachary.Interpolator import Interpolator
+        ens = []
+        if optimized is None:
+            raise Exception("No energy type specified.")
+        for log in self.logs:
+            if optimized:
+                with GaussianLogReader(log) as reader:
+                    parse = reader.parse("OptimizedScanEnergies")
+                energy_array, coords = parse["OptimizedScanEnergies"]
+                roo = coords['Roo12']
+                roh = coords['Roh']
+                ens.append(np.column_stack((roo, roh, energy_array)))
+            else:
+                with GaussianLogReader(log) as reader:
+                    parse = reader.parse("ScanEnergies")
+                just_the_val = parse["ScanEnergies"]["values"][:, 1:]  # returns only the MP2 energy
+                just_the_val = np.concatenate((just_the_val[:, :2], just_the_val[:, [-1]]), axis=1)
+                ens.append(just_the_val)
             energy = np.concatenate(ens)
             energy[:, 0] *= 2
             idx = np.lexsort((energy[:, 1], energy[:, 0]))
@@ -143,9 +164,10 @@ class LogInterpreter:
         implementation should plot to check"""
         import os
         import glob as glob
-        FD_dir = os.path.join(self.molecule.mol_dir, 'Finite Scan Data')
+        FD_dir = os.path.join(self.molecule.mol_dir, 'Finite Scan Data', "oneD")
         FD_scans = sorted(glob.glob(os.path.join(FD_dir, ('Egraph_%s_*.dat' % self.method))))
-        oos = np.unique(np.array(list(self.cartesians.keys()))[:, 0])
+        # oos = np.unique(np.array(list(self.cartesians.keys()))[:, 0])
+        oos = np.arange(1.9696, 4.1296, 0.12)
         finite_energies = np.empty((0, 3), int)
         for oo, dat in zip(oos, FD_scans):
             pts = np.loadtxt(dat)
@@ -247,11 +269,13 @@ class LogInterpreter:
                 parse = reader.parse(("OptimizedDipoleMoments", "DipoleMoments"))
             if optimized:
                 dips = parse["OptimizedDipoleMoments"]
+                dips = np.array(list(dips))
+                Findips = dips / 0.393456  # convert dipoles from au to debye IMMEDIATELY!
             else:
                 dips = parse["DipoleMoments"]
-            dips = np.array(list(dips))
+                Findips = np.array(list(dips))
             coord = LogInterpreter(log, moleculeObj=self.molecule).cartesians.keys()
-            struct.update(((c, d) for c, d in zip(coord, dips)))
+            struct.update(((c, d) for c, d in zip(coord, Findips)))
         return struct
 
     def cut_dictionary(self, midpoint=False):
