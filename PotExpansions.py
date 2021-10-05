@@ -88,12 +88,17 @@ class ModelHarmonic:
     def __init__(self, moleculeObj, CC=False):
         self.molecule = moleculeObj
         self.CC = CC
-        self.energy_array = self.molecule.logData.energies
+        if self.molecule.OH:
+            self.energy_array = self.molecule.logData.OHenergies
+        else:
+            self.energy_array = self.molecule.logData.energies
         self._massdict = None
         self._finitevals = None
         self._force_constants = None
         self._grid = None
+        self._coord_grid = None
         self._CubicCoupling = None
+        self._HarmonicPotential = None
 
     @property
     def massdict(self):
@@ -120,18 +125,35 @@ class ModelHarmonic:
         return self._grid
 
     @property
+    def coord_grid(self):
+        if self._coord_grid is None:
+            self._coord_grid = self.get_grid(Dgrid=False)
+        return self._coord_grid
+
+    @property
     def CubicCoupling(self):
         if self._CubicCoupling is None:
             self._CubicCoupling = self.getCC()
         return self._CubicCoupling
+
+    @property
+    def HarmonicPotential(self):
+        if self._HarmonicPotential is None:
+            if self.molecule.OH:
+                print("Using OH/OO Harmonic Model")
+                self._HarmonicPotential = self.getHarmonicPotOH()
+            else:
+                print("Using XH/OO Harmonic Model")
+                self._HarmonicPotential = self.ModelHarmonicPotential()
+        return self._HarmonicPotential
 
     def get_reducedmass(self):
         from Converter import Constants
         mO = Constants.mass("O", to_AU=True)
         mH = Constants.mass("H", to_AU=True)
         massdict = dict()
-        muOOH = ((2 * mO) * mH) / ((2 * mO) + mH)
-        massdict["muOOH"] = muOOH
+        muXH = ((2 * mO) * mH) / ((2 * mO) + mH)
+        massdict["muXH"] = muXH
         muOH = 1/(1/mO + 1/mH)
         massdict["muOH"] = muOH
         muOO = mO / 2
@@ -144,7 +166,7 @@ class ModelHarmonic:
         # load in finite difference scan data and compute Force constants in OH and OO
         fs_dir = os.path.join(self.molecule.mol_dir, "Finite Scan Data", "twoD")
         if self.molecule.MoleculeName == "H9O4pls":
-            finite_vals = np.loadtxt(f"{fs_dir}/2D_finiteSPEtet_01_008.dat", skiprows=7)
+            finite_vals = np.loadtxt(f"{fs_dir}/2D_finiteSPEtet_01_008.dat", skiprows=7)  # scan in Roo, Roh
         elif self.molecule.MoleculeName == "H7O3pls":
             finite_vals = np.loadtxt(f"{fs_dir}/2D_finiteSPEtri_01_008.dat", skiprows=7)
         else:
@@ -164,24 +186,29 @@ class ModelHarmonic:
                                 end_point_precision=0, stencil=5, only_center=True)[0]
         FRR = finite_difference(OH_FD[:, 0]-OH_FD[2, 0], OH_FD[:, 2], 2,
                                 end_point_precision=0, stencil=5, only_center=True)[0]
+        print("kr", Frr)
+        print("kR", FRR)
         return Frr, FRR
 
-    def get_grid(self):
+    def get_grid(self, Dgrid=True):
         from Converter import Constants
         OOs = np.unique(self.energy_array[:, 0])
-        OHs = np.unique(self.energy_array[:, 1])
+        y = np.unique(self.energy_array[:, 1])  # either XH or OH depends on potential given
         self.energy_array[:, 2] -= min(self.energy_array[:, 2])
-        squarepot = np.reshape(self.energy_array[:, 2], (len(OOs), len(OHs)))
+        squarepot = np.reshape(self.energy_array[:, 2], (len(OOs), len(y)))
         mini = np.unravel_index(np.argmin(squarepot, axis=None), squarepot.shape)
-        OOs_bohr = Constants.convert(OOs, "angstroms", to_AU=True)  # convert OO/OH to bohr for math
-        XHs_bohr = Constants.convert(OHs, "angstroms", to_AU=True)
-        print(OOs[mini[0]], OHs[mini[1]])
-        # calculate Delta roh and Delta Roo
-        DROO = OOs_bohr - OOs_bohr[mini[0]]
-        Drxh = XHs_bohr - XHs_bohr[mini[1]]
-        DROO_array, Drxh_array = np.meshgrid(DROO, Drxh)  # indexing='ij'
-        # Droh_array = DROO_array / 2 - Drxh_array
-        return DROO_array, Drxh_array
+        print(OOs[mini[0]], y[mini[1]])
+        OOs_bohr = Constants.convert(OOs, "angstroms", to_AU=True)  # convert OO/y to bohr for math
+        y_bohr = Constants.convert(y, "angstroms", to_AU=True)
+        DROO = np.linspace(-2, 2, 40)
+        Dry = np.linspace(-2, 2, 40)
+        if Dgrid:
+            x_array, y_array = np.meshgrid(DROO, Dry)  # indexing='ij'
+        else:
+            OOs = DROO + OOs_bohr[mini[0]]
+            y = Dry + y_bohr[mini[1]]
+            x_array, y_array = np.meshgrid(OOs, y)
+        return x_array, y_array
 
     def getCC(self):
         from McUtils.Zachary import finite_difference
@@ -198,11 +225,13 @@ class ModelHarmonic:
         FRR = self.force_constants[1]
         print("OO:", Constants.convert(np.sqrt(FRR/self.massdict["muOO"]), "wavenumbers", to_AU=False))
         print("OH:", Constants.convert(np.sqrt(Frr/self.massdict["muOH"]), "wavenumbers", to_AU=False))
-        print("OOH:", Constants.convert(np.sqrt(Frr/self.massdict["muOOH"]), "wavenumbers", to_AU=False))
-        print("ZPE:", Constants.convert((np.sqrt(FRR/self.massdict["muOO"]))/2+(np.sqrt(Frr/self.massdict["muOOH"]))/2,
+        print("OOH:", Constants.convert(np.sqrt(Frr/self.massdict["muXH"]), "wavenumbers", to_AU=False))
+        print("ZPE:", Constants.convert((np.sqrt(FRR/self.massdict["muOO"]))/2+(np.sqrt(Frr/self.massdict["muXH"]))/2,
                                         "wavenumbers", to_AU=False))
 
     def ModelHarmonicPotential(self, plotV=None):
+        # Double check these equations.. for this model we should be considering XH/OH but self.grid is XH and Frr & FRR
+        # are calculated using OH/OO... seems like the change of variables is off...
         Frr = self.force_constants[0]
         FRR = self.force_constants[1]
         xh_HO = 1/2*Frr*(self.grid[1]**2) - 1/2*Frr*(self.grid[0]*self.grid[1])
@@ -222,8 +251,34 @@ class ModelHarmonic:
             plt.colorbar()
             plt.xlabel("Delta OO")
             plt.ylabel("Delta OH")
-            plt.savefig(plotV)
-            plt.close()
+            plt.show()
+            # plt.savefig(plotV)
+            # plt.close()
+        return V_HO
+
+    def getHarmonicPotOH(self, plotV=None):
+        Frr = self.force_constants[0]
+        FRR = self.force_constants[1]
+        oh_HO = 1/2*Frr*(self.grid[1]**2)
+        OO_HO = 1/2*FRR*(self.grid[0]**2)
+        if self.CC:
+            V_HO = OO_HO + oh_HO + (self.CubicCoupling * self.grid[1]**2 * self.grid[0])
+        else:
+            V_HO = OO_HO + oh_HO
+
+        if plotV is not None:
+            from Converter import Constants
+            import matplotlib.pyplot as plt
+            V_HOwave = Constants.convert(V_HO, "wavenumbers", to_AU=False)
+            V_HOwave[V_HOwave > 25000] = 25000
+            plt.contour(self.grid[0], self.grid[1], V_HOwave, colors='k', levels=10)
+            plt.contourf(self.grid[0], self.grid[1], V_HOwave, cmap='viridis', levels=10)
+            plt.colorbar()
+            plt.xlabel("Delta OO")
+            plt.ylabel("Delta OH")
+            plt.show()
+            # plt.savefig(plotV)
+            # plt.close()
         return V_HO
 
     def run_2D_DVR(self):
@@ -235,7 +290,7 @@ class ModelHarmonic:
         xy = np.column_stack((self.grid[0].flatten(), self.grid[1].flatten()))
         ens = self.ModelHarmonicPotential().flatten()
         res = dvr_2D.run(potential_grid=np.column_stack((xy, ens)),
-                         divs=(100, 100), mass=[self.massdict["muOO"], self.massdict["muOOH"]], num_wfns=15,
+                         divs=(100, 100), mass=[self.massdict["muOO"], self.massdict["muOH"]], num_wfns=15,
                          domain=((min(xy[:, 0]), max(xy[:, 0])), (min(xy[:, 1]), max(xy[:, 1]))),
                          results_class=ResultsInterpreter)
         dvr_grid = Constants.convert(res.grid, "angstroms", to_AU=False)

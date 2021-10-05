@@ -305,13 +305,15 @@ class TMplots:
         labelNames = {"dipSurf": "Dipole Surface", "quadOH": "Quadratic (XH) Dipole", "linOH": "Linear (XH) Dipole"}
         # colors = ["darkmagenta", "mediumslateblue", "mediumblue"]
         colors = ["green", "blue", "purple"]
+        # fig = plt.figure(figsize=(6, 4), dpi=600)
         for j, v in enumerate(comp):
-            plt.plot(x, mus[:, j], 'ok')
             for i, t in enumerate(labelNames.keys()):
-                plt.plot(bigGrid, exMus[t][:, j], color=colors[i], label=labelNames[t])
+                plt.plot(bigGrid, exMus[t][:, j], color=colors[i], label=labelNames[t], linewidth=2.0)
             for l, pt in enumerate(x):
                 if pt == 2.3296 or pt == 2.5696 or pt == 2.8096:
-                    plt.plot(pt, mus[l, j], "o", color="deeppink")
+                    plt.plot(pt, mus[l, j], "o", color="red", fillstyle="none")
+                else:
+                    plt.plot(pt, mus[l, j], 'ok')
             if ylim is not None:
                 plt.ylim(*ylim)
             if xlim is not None:
@@ -321,7 +323,8 @@ class TMplots:
             plt.xlabel("$\mathrm{R_{OO}}$ ($\mathrm{\AA}$)", size=16)
             plt.ylabel("Transition Dipole Moment (Debye)", size=16)
             plt.tight_layout()
-            # plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_{v}componentTDM.png")
+            # plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_{v}componentTDM_red.png",
+            #             dpi=fig.dpi, bbox_inches="tight")
             plt.show()
 
 class TM2Dplots:

@@ -13,8 +13,9 @@ class LogInterpreter:
         self.scancoord_1 = self.molecule.scanCoords[0]
         self.scancoord_2 = self.molecule.scanCoords[1]
         self._atomnum = None  # should be atomic numbers
-        self._energies = None  # np.ndarray of electronic energies from Gaussian fillvalues to be square
-        self._rawenergies = None  # np.ndarray of electronic energies ONLY FROM GAUSSIAN
+        self._energies = None  # np.ndarray of electronic energies from Gaussian fillvalues to be square (XH/OO)
+        self._rawenergies = None  # np.ndarray of electronic energies ONLY FROM GAUSSIAN (XH/OO)
+        self._OHenergies = None  # np.ndarray of electronic energies from Gaussian fillvalues to be square (OH/OO)
         self._finite_energies = None  # np.ndarray of electronic energies from bottom of oo wells
         self._cartesians = None  # dictionary of cartesian coordinates keyed by (x, y) distances
         self._zmatrices = None   # dictionary of z-matrix values keyed by (x, y) distances
@@ -25,6 +26,12 @@ class LogInterpreter:
         if self._energies is None:
             self._energies = self.get_electronic_energy(**self.params)
         return self._energies
+
+    @property
+    def OHenergies(self):
+        if self._OHenergies is None:
+            self._OHenergies = self.get_electronic_energyOH(**self.params)
+        return self._OHenergies
 
     @property
     def rawenergies(self):
