@@ -80,8 +80,8 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
         en = twoD_grid[:, 2]
         KC = False
     elif potential == "harmPot":
-        npz_filename = os.path.join(moleculeObj.mol_dir, "DVR Results", f"HMP_2D_DVR.npz")
-        PotObj = ModelHarmonic(moleculeObj, CC=True)  # add "CC=True" to add in cubic coupling to potential
+        npz_filename = os.path.join(moleculeObj.mol_dir, "DVR Results", f"HMP50neon_2D_DVR.npz")
+        PotObj = ModelHarmonic(moleculeObj, CC=False)  # add "CC=True" to add in cubic coupling to potential
         en = PotObj.HarmonicPotential.flatten()
         xy = np.column_stack((PotObj.coord_grid[0].flatten(), PotObj.coord_grid[1].flatten()))
         KC = True  # set KC = True anytime you use OH/OO
@@ -117,14 +117,14 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
     massdict = get_reducedmass()
     if KC:
         res = dvr_2D.run(potential_grid=np.column_stack((xy, en)),
-                         divs=(100, 100), mass=[massdict["muOO"], massdict["muOH"]], g=[[g_mat_oo, g_mat_offd],
-                                                                                        [g_mat_offd, g_mat_oh]],
+                         divs=(50, 50), mass=[massdict["muOO"], massdict["muOH"]], g=[[g_mat_oo, g_mat_offd],
+                                                                                    [g_mat_offd, g_mat_oh]],
                          g_deriv=[g_deriv, g_deriv], num_wfns=15,
                          domain=((min(xy[:, 0]),  max(xy[:, 0])), (min(xy[:, 1]), max(xy[:, 1]))),
                          results_class=ResultsInterpreter)
     else:
         res = dvr_2D.run(potential_grid=np.column_stack((xy, en)),
-                         divs=(100, 100), mass=[massdict["muOO"], massdict["muXH"]], num_wfns=10,
+                         divs=(100, 100), mass=[massdict["muOO"], massdict["muXH"]], num_wfns=15,
                          domain=((min(xy[:, 0]),  max(xy[:, 0])), (min(xy[:, 1]), max(xy[:, 1]))),
                          results_class=ResultsInterpreter)
     # res.plot_potential(plot_class=ContourPlot, plot_units="wavenumbers", colorbar=True).show()
@@ -133,30 +133,30 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
     all_ens = Constants.convert(res.wavefunctions.energies, "wavenumbers", to_AU=False)
     print(all_ens)
     # ResultsInterpreter.wfn_contours(res)
-    # oh1oo0 = int(input("OH=1 OO=0 Wavefunction Index: "))
-    # oh1oo1 = int(input("OH=1 OO=1 Wavefunction Index: "))
-    # oh1oo2 = int(input("OH=1 OO=2 Wavefunction Index: "))
-    # ens = np.zeros(4)
-    # wfns = np.zeros((4, res.wavefunctions[0].data.shape[0]))
-    # for i, wf in enumerate(res.wavefunctions):
-    #     wfn = wf.data
-    #     if i == 0:
-    #         wfns[0] = wfn
-    #         ens[0] = all_ens[i]
-    #     elif i == oh1oo0:
-    #         wfns[1] = wfn
-    #         ens[1] = all_ens[i]
-    #     elif i == oh1oo1:
-    #         wfns[2] = wfn
-    #         ens[2] = all_ens[i]
-    #     elif i == oh1oo2:
-    #         wfns[3] = wfn
-    #         ens[3] = all_ens[i]
-    #     else:
-    #         pass
-    # # data saved in wavenumbers/angstroms
-    # np.savez(npz_filename, grid=[dvr_grid], potential=[dvr_pot], vrwfn_idx=[0, oh1oo0, oh1oo1, oh1oo2],
-    #          energy_array=ens, wfns_array=wfns)
+    oh1oo0 = int(input("OH=1 OO=0 Wavefunction Index: "))
+    oh1oo1 = int(input("OH=1 OO=1 Wavefunction Index: "))
+    oh1oo2 = int(input("OH=1 OO=2 Wavefunction Index: "))
+    ens = np.zeros(5)
+    wfns = np.zeros((5, res.wavefunctions[0].data.shape[0]))
+    for i, wf in enumerate(res.wavefunctions):
+        wfn = wf.data
+        if i == 0:
+            wfns[0] = wfn
+            ens[0] = all_ens[i]
+        elif i == oh1oo0:
+            wfns[1] = wfn
+            ens[1] = all_ens[i]
+        elif i == oh1oo1:
+            wfns[2] = wfn
+            ens[2] = all_ens[i]
+        elif i == oh1oo2:
+            wfns[3] = wfn
+            ens[3] = all_ens[i]
+        else:
+            pass
+    # data saved in wavenumbers/angstroms
+    np.savez(npz_filename, grid=[dvr_grid], potential=[dvr_pot], vrwfn_idx=[0, oh1oo0, oh1oo1, oh1oo2],
+             energy_array=all_ens, wfns_array=wfns)
     return npz_filename
 
 if __name__ == '__main__':
@@ -168,5 +168,5 @@ if __name__ == '__main__':
     tetramer = makeMolecule("H9O4pls", tetEmbedDict, dimension="2D", OH=True)
     tetramer_XH = makeMolecule("H9O4pls", tetEmbedDict, dimension="2D", OH=False)
 
-    run_2D_DVR(tetramer, potential="harmPot", XHobj=tetramer_XH)
+    run_2D_DVR(trimer, potential="harmPot", XHobj=trimer_XH)
 

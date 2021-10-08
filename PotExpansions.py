@@ -186,8 +186,6 @@ class ModelHarmonic:
                                 end_point_precision=0, stencil=5, only_center=True)[0]
         FRR = finite_difference(OH_FD[:, 0]-OH_FD[2, 0], OH_FD[:, 2], 2,
                                 end_point_precision=0, stencil=5, only_center=True)[0]
-        print("kr", Frr)
-        print("kR", FRR)
         return Frr, FRR
 
     def get_grid(self, Dgrid=True):
@@ -197,11 +195,10 @@ class ModelHarmonic:
         self.energy_array[:, 2] -= min(self.energy_array[:, 2])
         squarepot = np.reshape(self.energy_array[:, 2], (len(OOs), len(y)))
         mini = np.unravel_index(np.argmin(squarepot, axis=None), squarepot.shape)
-        print(OOs[mini[0]], y[mini[1]])
         OOs_bohr = Constants.convert(OOs, "angstroms", to_AU=True)  # convert OO/y to bohr for math
         y_bohr = Constants.convert(y, "angstroms", to_AU=True)
-        DROO = np.linspace(-2, 2, 40)
-        Dry = np.linspace(-2, 2, 40)
+        DROO = np.linspace(-1.5, 1.5, 40)
+        Dry = np.linspace(-1.5, 1.5, 40)
         if Dgrid:
             x_array, y_array = np.meshgrid(DROO, Dry)  # indexing='ij'
         else:
