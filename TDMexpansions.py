@@ -53,8 +53,12 @@ class TM2Dexpansion:
         ohquad_mus = np.zeros((*delta_Roo.shape, 3))
         v = ['x', 'y', 'z']
         for i in np.arange(3):  # hard coded because this is always the number of components (ie x, y, z)
-            ohquad_mus[:, i] = eqDip[i] + derivs[v[i]]["firstOH"]*delta_roh + derivs[v[i]]["firstOO"]*delta_Roo + \
-                           derivs[v[i]]["secondOH"]*(delta_roh**2)*(1/2)
+            # print(v[i], "first", derivs[v[i]]["firstOH"])
+            # print(v[i], "second", derivs[v[i]]["secondOH"])
+            ohquad_mus[:, i] = eqDip[i] + derivs[v[i]]["firstOH"]*delta_roh + \
+                               derivs[v[i]]["secondOH"]*(delta_roh**2)*(1/2)
+            # derivs[v[i]]["firstOO"]*delta_Roo + \ don't know how this ended up in here...
+            # corrected now, the results saved were without it
         return ohquad_mus
 
     @classmethod

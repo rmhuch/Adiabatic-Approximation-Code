@@ -47,6 +47,7 @@ class TransitionMoment:
             if os.path.exists(npfilename):
                 self._embeddedDips = np.load(npfilename)
             else:
+                print("embedding dipoles")
                 self._embeddedCoords, self._embeddedDips = self.embed()
                 self.savestructs()
         return self._embeddedDips
@@ -213,7 +214,7 @@ class TransitionMoment:
             muses[t] = mus
         return grids, muses
 
-    def calc_all1Dmus(self, npts=7):
+    def calc_all1Dmus(self, npts=10):
         from Converter import Constants
         grids = self.mus[0]
         x = grids["dipSurf"][:, 0, 0]

@@ -115,10 +115,13 @@ class AAplots:
         roos = eps[:, 0]
         colors = ["grey", "red", "orange", "deeppink"]
         for i, j in enumerate(roos):
-            fig = plt.figure(facecolor="white")
+            fig = plt.figure(dpi=600, facecolor="white")
             ax1 = plt.axes()
             ax1.get_xaxis().tick_bottom()
             ax1.axes.get_yaxis().set_visible(False)
+            ax1.spines["top"].set_visible(False)
+            ax1.spines["left"].set_visible(False)
+            ax1.spines["right"].set_visible(False)
             for k in np.arange(2):
                 plt.plot(potz[i, :, 0], (wfns[i, :, k]**2), linewidth=3.0, color=colors[k+1], label="$\psi_{%d_{XH}}$" % k)
             plt.ylim(-0.001, 0.025)
@@ -126,10 +129,11 @@ class AAplots:
             # ax1.add_artist(Line2D((-0.4, 0.7), (-0.001, -0.001), color='k', linewidth=2))
             plt.xlabel("$\mathrm{r_{XH}}$ ($\mathrm{\AA}$)", size=16)
             # plt.ylabel("Probability Amplitude", size=16)
-            plt.legend(fontsize=14)
-            plt.title(f"Roo = {j}", size=20)
+            plt.legend(fontsize=14, frameon=False)
+            plt.title(f"Roo = {j}", size=16)
             plt.tight_layout()
-            plt.savefig(f"{self.wfn_dir}/{self.molecule.method}_{self.OHDVR}_OHPAs_Roo_{j}_test.png")
+            plt.savefig(f"{self.wfn_dir}/{self.molecule.method}_{self.OHDVR}_OHPAs_Roo_{j}_test.png",
+                        dpi=fig.dpi, bbox_inches="tight")
             plt.close()
 
     def ooWfn_plots(self, wfns2plt=2, **params):
@@ -160,7 +164,7 @@ class AAplots:
         mini_pot = self.logData.minimum_pot()
         eps = self.OHDVRresults["epsilonPots"]
         oo_energies = self.OODVRresults["energy_array"]
-        fig = plt.figure(figsize=(6, 6), dpi=300)
+        fig = plt.figure(figsize=(5, 6), dpi=600)
         plt.rcParams.update({'font.size': 16})
         grid = self.OODVRresults["potential"][0][:, 0]
         # plot electronic energy
@@ -178,6 +182,11 @@ class AAplots:
             print(f"{self.OHDVRresults['method']} Ground State(OH={i}): ", en_level[0])
             tck = interpolate.splrep(eps[:, 0], pot, s=0)
             pot_fit = interpolate.splev(grid, tck, der=0)
+            # plot minimum line
+            if i == 0:
+                min_idx = np.argmin(pot_fit)
+                print("minimum OO: ", grid[min_idx])
+                plt.plot(np.repeat(grid[min_idx], 100), np.linspace(0, 8000, 100), "--C7", linewidth=3.0)
             plt.plot(grid, pot_fit, colors[i], linewidth=6.0)
             for j in range(2):  # plot levels
                 # -- if levels aren't plotting check xl and xr and make sure they are making actual vectors.
@@ -187,11 +196,15 @@ class AAplots:
                 E = [en_level[j]] * len(enl_x)
                 plt.plot(enl_x, E, colors[i], linewidth=4.0)
         print(f"{self.OHDVRresults['method']} Frequency OH: ", oo_energies[1, 0] - oo_energies[0, 0])
-        plt.title(f"{self.molecule.method} {self.OHDVRresults['method']} OH")
+
+        # plt.title(f"{self.molecule.method} {self.OHDVRresults['method']} OH")
+        plt.yticks(fontsize=20)
         plt.ylim(0, 8000)
-        plt.xlim(2, 4)
+        plt.xticks(fontsize=20)
+        plt.xlim(2, 3.5)
         plt.tight_layout()
-        plt.savefig(f"{self.fig_dir}/{self.molecule.method}_adiabatplot_{self.OHDVR}OH{self.OODVR}OO.png")
+        plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_adiabatplot_{self.OHDVR}OH{self.OODVR}OO_minline.png",
+                    dpi=fig.dpi, bbox_inches="tight")
         plt.close()
 
 class AA2Dplots:
@@ -296,21 +309,22 @@ class TMplots:
             main.figure.suptitle(f"Roo = {oo}")
             main.show()
 
-    def componentTMs(self, ylim=None, xlim=None):
+    def componentTMs(self, mark_pts, ylim=None, xlim=None):
         comp = ["X", "Y", "Z"]
         x = Constants.convert(self.tmObj.mus[0]["dipSurf"][:, 0, 0], "angstroms", to_AU=False)
         mus = self.tmObj.mus[1]["dipSurf"]
         bigGrid = Constants.convert(self.tmObj.tdms[0], "angstroms", to_AU=False)
         exMus = self.tmObj.tdms[1]
-        labelNames = {"dipSurf": "Dipole Surface", "quadOH": "Quadratic (XH) Dipole", "linOH": "Linear (XH) Dipole"}
+        labelNames = {"dipSurf": "Full", "quadOH": "Quadratic", "linOH": "Linear"}
         # colors = ["darkmagenta", "mediumslateblue", "mediumblue"]
-        colors = ["green", "blue", "purple"]
-        # fig = plt.figure(figsize=(6, 4), dpi=600)
+        colors = ["C4", "C1", "C2"]
+        ls = ["-.", "-", "--"]
+        fig = plt.figure(figsize=(5, 5.5), dpi=600)
         for j, v in enumerate(comp):
             for i, t in enumerate(labelNames.keys()):
-                plt.plot(bigGrid, exMus[t][:, j], color=colors[i], label=labelNames[t], linewidth=2.0)
+                plt.plot(bigGrid, exMus[t][:, j], color=colors[i], linestyle=ls[i], label=labelNames[t], linewidth=2.0)
             for l, pt in enumerate(x):
-                if pt == 2.3296 or pt == 2.5696 or pt == 2.8096:
+                if pt == mark_pts[0] or pt == mark_pts[1] or pt == mark_pts[2]:
                     plt.plot(pt, mus[l, j], "o", color="red", fillstyle="none")
                 else:
                     plt.plot(pt, mus[l, j], 'ok')
@@ -319,13 +333,13 @@ class TMplots:
             if xlim is not None:
                 plt.xlim(*xlim)
             plt.title(f"{v} Component TDM", size=18)
-            plt.legend(fontsize=14)
+            plt.legend(fontsize=14, frameon=False)
             plt.xlabel("$\mathrm{R_{OO}}$ ($\mathrm{\AA}$)", size=16)
             plt.ylabel("Transition Dipole Moment (Debye)", size=16)
             plt.tight_layout()
-            # plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_{v}componentTDM_red.png",
-            #             dpi=fig.dpi, bbox_inches="tight")
-            plt.show()
+            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_{v}componentTDM_wNMarkers.png",
+                        dpi=fig.dpi, bbox_inches="tight")
+            plt.close()
 
 class TM2Dplots:
     def __init__(self, moleculeObj=None, TwoDnpz=None, **kwargs):
@@ -361,7 +375,8 @@ class TM2Dplots:
                 plot_style=dict(cmap="viridis_r", levels=10, vmin=mini, vmax=maxi),
                 figure=main[0, i],
                 axes_labels=[Styled('$\mathrm{R_{OO}}$ ($\mathrm{\AA}$)', size=16),
-                             Styled('$\mathrm{r_{XH}}$ ($\mathrm{\AA}$)', size=16)])
+                             Styled('$\mathrm{r_{XH}}$ ($\mathrm{\AA}$)', size=16)],
+                xlim=(2.0, 4.0), ylim=(-0.4, 0.4))
             main[0, i] = ListContourPlot(np.column_stack((grid[:, 0], grid[:, 1], dips[:, i])), **opts)
             main[0, i].plot_label = Styled(f'{comp[i]}-Component of Dipole', size=18)
         main.colorbar = {"graphics": main[0, 0].graphics}
@@ -374,9 +389,10 @@ class TM2Dplots:
         comp = ["X", "Y", "Z"]
         labelNames = {"dipSurf": "Dipole Surface", "quadOH": "Quadratic (XH) Dipole", "linOH": "Linear (XH) Dipole"}
         Grid = Constants.convert(self.tmObj.TwoD_dms[0], "angstroms", to_AU=False)
+        y_mask = np.argwhere(np.logical_and(Grid[:, 1] >= -0.4, Grid[:, 1] <= 0.4)).flatten()
         exMus = self.tmObj.TwoD_dms[1]
-        mini = np.amin(exMus["dipSurf"])
-        maxi = np.amax(exMus["dipSurf"])
+        mini = np.min(exMus["dipSurf"][y_mask, 0])
+        maxi = np.max(exMus["dipSurf"][y_mask, 0])
         for i in np.arange(3):  # make one figure per comp
             main = GraphicsGrid(ncols=3, nrows=1)
             main.image_size = (1800, 600)
@@ -386,34 +402,36 @@ class TM2Dplots:
                 axes_labels=[Styled('$\mathrm{R_{OO}}$ ($\mathrm{\AA}$)', size=16),
                              Styled('$\mathrm{r_{XH}}$ ($\mathrm{\AA}$)', size=16)])
             for j, k in enumerate(labelNames.keys()):
-                main[0, j] = ListContourPlot(np.column_stack((Grid[:, 0], Grid[:, 1], exMus[k][:, i])),
+                main[0, j] = ListContourPlot(np.column_stack((Grid[y_mask, 0], Grid[y_mask, 1], exMus[k][y_mask, i])),
                                              figure=main[0, j], **opts)
                 main[0, j].plot_label = Styled(labelNames[k], size=18)
             main.figure.suptitle(f"{comp[i]} - Component", size=18)
             main.colorbar = {"graphics": main[0, 0].graphics}
             plt.tick_params(axis='both', which='minor', labelsize=14)
-            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_2D_{comp[i]}_DMexpansions.png")
+            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{self.molecule.method}_2D_{comp[i]}_DMexpansions.png",
+                        dpi=600, bbox_inches="tight")
             plt.close()
 
     def plotDMcut(self, ylim=None, xlim=None):
         comp = ["X", "Y", "Z"]
-        labelNames = {"dipSurf": "Dipole Surface", "quadOH": "Quadratic (XH) Dipole", "linOH": "Linear (XH) Dipole"}
+        labelNames = {"dipSurf": "Full", "quadOH": "Quadratic", "linOH": "Linear"}
         exMus = self.tmObj.TwoD_dms[1]
         Grid = self.TwoDResults["grid"].squeeze()
         Pot = self.TwoDResults["potential"]
         squarepot = np.reshape(Pot, (Grid.shape[0], Grid.shape[1]))
         mini = np.unravel_index(np.argmin(squarepot, axis=None), squarepot.shape)
         XHgrid = Grid[0, :, 1]
-        # colors = ["darkmagenta", "mediumslateblue", "mediumblue"]
-        colors = ["green", "blue", "purple"]
+        colors = ["C4", "C1", "C2"]
+        ls = ["-.", "-", "--"]
         for i, c in enumerate(comp):  # loop through components
+            fig = plt.figure(figsize=(5, 5.5), dpi=600)
             mu_cuts = []
             for t in labelNames.keys():  # loop through expansions
                 # for every XH all the OO values
                 mu_grid = exMus[t][:, i].reshape((Grid.shape[0], Grid.shape[1]))
                 mu_cuts.append(mu_grid[mini[0], :])
             for j, k in enumerate(labelNames.keys()):
-                plt.plot(XHgrid, mu_cuts[j], color=colors[j], label=labelNames[k])
+                plt.plot(XHgrid, mu_cuts[j], color=colors[j], linestyle=ls[j], label=labelNames[k])
             plt.xlabel("$\mathrm{r_{XH}}$ ($\mathrm{\AA}$)", size=16)
             plt.ylabel("Dipole Moment (Debye)", size=16)
             plt.title(f"{c}-component", size=18)
@@ -423,8 +441,9 @@ class TM2Dplots:
                 plt.xlim(*xlim)
             plt.legend(fontsize=14)
             plt.tight_layout()
-            plt.show()
-            # plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{c}_DipoleSurfCuts.png")
+            # plt.show()
+            plt.savefig(f"{self.fig_dir}/{self.molecule.MoleculeName}_{c}_DipoleSurfCuts.png",
+                        dpi=fig.dpi, bbox_inches="tight")
             plt.close()
 
 

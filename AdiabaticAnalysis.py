@@ -167,9 +167,13 @@ class AdiabaticApprox:
             res = dvr_1D.run(potential_function=Potentials1D().potlint(x, en), mass=self.massdict["muOO"],
                              divs=self.NumPts, domain=(mini, maxi), num_wfns=self.desiredEnergies)
             potential = Constants.convert(res.potential_energy.diagonal(), "wavenumbers", to_AU=False)
-            potential_array[j, :, 0] = Constants.convert(res.grid, "angstroms", to_AU=False)
+            grid = Constants.convert(res.grid, "angstroms", to_AU=False)
+            potential_array[j, :, 0] = grid
             potential_array[j, :, 1] = potential
+            min_idx = np.argmin(potential)
+            print(j, grid[min_idx], potential[min_idx])
             ens = Constants.convert(res.wavefunctions.energies, "wavenumbers", to_AU=False)
+            print(j, ens)
             energies_array[j, :] = ens
             wavefunctions_array[j, :, :] = res.wavefunctions.wavefunctions
         npz_filename = os.path.join(self.DVRdir,

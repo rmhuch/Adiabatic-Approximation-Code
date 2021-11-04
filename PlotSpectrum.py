@@ -36,7 +36,7 @@ class Spectrum:
             self.shSpectType = "harmModel"
             from transitionmoment import TransitionMoment
             self.TwoDnpz = TwoDnpz
-            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz, delta=True)
+            self.tmObj = TransitionMoment(moleculeObj=self.molecule, dimension="2D", TwoDnpz=self.TwoDnpz) # , delta=True)
             self.DVRmethod = None
 
         elif self.spectType == "Harmonic Model w/CC":
@@ -160,7 +160,7 @@ class Spectrum:
             matEls = self.intensities[1]
             intents = matEls * freqs
         elif self.spectType == "Harmonic Model" or self.spectType == "Harmonic Model w/CC":
-            title = f"{self.spectType} Potential Values: "
+            title = f"{self.spectType} {self.TDMtype} Values: "
             twoDres = np.load(self.TwoDnpz)
             freqs = twoDres["energy_array"][1:] - twoDres["energy_array"][0]
             matEls = self.intensities

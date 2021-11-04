@@ -76,15 +76,16 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
     elif potential == "xhPot":
         npz_filename = os.path.join(moleculeObj.mol_dir, "DVR Results", f"{moleculeObj.method}_2D_DVR_KC_XHPot.npz")
         twoD_grid = XHobj.logData.energies
+        print(twoD_grid)
         xy = Constants.convert(twoD_grid[:, :2], "angstroms", to_AU=True)
         en = twoD_grid[:, 2]
         KC = False
     elif potential == "harmPot":
-        npz_filename = os.path.join(moleculeObj.mol_dir, "DVR Results", f"HMP50neon_2D_DVR.npz")
+        npz_filename = os.path.join(moleculeObj.mol_dir, "DVR Results", f"HMP_2D_DVR_XHOO.npz")
         PotObj = ModelHarmonic(moleculeObj, CC=False)  # add "CC=True" to add in cubic coupling to potential
         en = PotObj.HarmonicPotential.flatten()
         xy = np.column_stack((PotObj.coord_grid[0].flatten(), PotObj.coord_grid[1].flatten()))
-        KC = True  # set KC = True anytime you use OH/OO
+        KC = False  # set KC = True anytime you use OH/OO
     elif potential == "OHinXH":  # solves OH/OO grid using the XH scan potential
         npz_filename = os.path.join(moleculeObj.mol_dir, "DVR Results", f"OHgridinXHpot_2D_DVR.npz")
         xh_pot = XHobj.logData.energies  # electronic potential in XH/OO
@@ -108,7 +109,7 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
         xhINoh_idx = np.argwhere((xhINoh_full >= np.min(ohGrid[:, 1])) * (xhINoh_full <= np.max(ohGrid[:, 1])))
         int_xy = np.column_stack((xyxh[xhINoh_idx, 0], xhINoh_full[xhINoh_idx]))
         # OO/XH grid in OO/OH coords WITH OH scan boundaries
-        en = interpolate.griddata(ohGrid, twoD_grid[:, 2], int_xy, method="cubic", fill_value=0.228)
+        en = interpolate.griddata(ohGrid, twoD_grid[:, 2], int_xy, method="cubic", fill_value=0.109)
         xy = int_xy  # use grid points you interpolate to, ie XH/OO becomes OH/OO
         KC = True  # set KC = True anytime you use OH/OO
     else:
@@ -117,8 +118,8 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
     massdict = get_reducedmass()
     if KC:
         res = dvr_2D.run(potential_grid=np.column_stack((xy, en)),
-                         divs=(50, 50), mass=[massdict["muOO"], massdict["muOH"]], g=[[g_mat_oo, g_mat_offd],
-                                                                                    [g_mat_offd, g_mat_oh]],
+                         divs=(100, 100), mass=[massdict["muOO"], massdict["muOH"]], g=[[g_mat_oo, g_mat_offd],
+                                                                                        [g_mat_offd, g_mat_oh]],
                          g_deriv=[g_deriv, g_deriv], num_wfns=15,
                          domain=((min(xy[:, 0]),  max(xy[:, 0])), (min(xy[:, 1]), max(xy[:, 1]))),
                          results_class=ResultsInterpreter)
@@ -136,8 +137,8 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
     oh1oo0 = int(input("OH=1 OO=0 Wavefunction Index: "))
     oh1oo1 = int(input("OH=1 OO=1 Wavefunction Index: "))
     oh1oo2 = int(input("OH=1 OO=2 Wavefunction Index: "))
-    ens = np.zeros(5)
-    wfns = np.zeros((5, res.wavefunctions[0].data.shape[0]))
+    ens = np.zeros(4)
+    wfns = np.zeros((4, res.wavefunctions[0].data.shape[0]))
     for i, wf in enumerate(res.wavefunctions):
         wfn = wf.data
         if i == 0:
@@ -156,17 +157,20 @@ def run_2D_DVR(moleculeObj, potential="scanPot", XHobj=None):
             pass
     # data saved in wavenumbers/angstroms
     np.savez(npz_filename, grid=[dvr_grid], potential=[dvr_pot], vrwfn_idx=[0, oh1oo0, oh1oo1, oh1oo2],
-             energy_array=all_ens, wfns_array=wfns)
+             energy_array=ens, wfns_array=wfns)
     return npz_filename
 
 if __name__ == '__main__':
     tetEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "outerO1": 5, "outerO2": 8, "inversion_atom": 8}
     triEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "xyPlane_atom": 5, "inversion_atom": 9}
+    diEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "inversion_atom": 3}
 
     trimer = makeMolecule("H7O3pls", triEmbedDict, dimension="2D", OH=True)
     trimer_XH = makeMolecule("H7O3pls", triEmbedDict, dimension="2D", OH=False)
     tetramer = makeMolecule("H9O4pls", tetEmbedDict, dimension="2D", OH=True)
     tetramer_XH = makeMolecule("H9O4pls", tetEmbedDict, dimension="2D", OH=False)
+    dimer = makeMolecule("H5O2pls", diEmbedDict, dimension="2D", OH=True)
+    dimer_XH = makeMolecule("H5O2pls", diEmbedDict, dimension="2D", OH=False)
 
-    run_2D_DVR(trimer, potential="harmPot", XHobj=trimer_XH)
-
+    run_2D_DVR(trimer_XH, potential="harmPot", XHobj=trimer_XH)
+    run_2D_DVR(tetramer_XH, potential="harmPot", XHobj=tetramer_XH)

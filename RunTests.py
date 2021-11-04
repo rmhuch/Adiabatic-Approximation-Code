@@ -46,14 +46,14 @@ def runAdiabaticApprox(molObj, OH="anharmonic", OO="anharmonic", plotPhasedWfns=
             oodvr_filename = f"{dvr_dir}/{molObj.method}_OODVR_w{OHdvr}OHDVR_energies{desiredenergies}.npz"
         if makePlots:
             PlotObj = AAplots(moleculeObj=molObj, OHDVRnpz=ohdvr_filename, OODVRnpz=oodvr_filename)
-            PlotObj.ohWfn_PAs()
+            # PlotObj.ohWfn_PAs()
             # PlotObj.make_scan_plots()
             # PlotObj.ohWfn_plots(wfns2plt=ohwfns2plt)
             # PlotObj.ooWfn_plots(wfns2plt=oowfns2plt)
-            # PlotObj.make_adiabatplots()
+            PlotObj.make_adiabatplots()
     else:
-        AAobj.run_2D_DVR()
-        # AA2Dplots(molObj, f"{dvr_dir}/rigid_2D_DVR.npz").plotProjections()
+        # AAobj.run_2D_DVR()
+        AA2Dplots(molObj, f"{dvr_dir}/rigid_2D_DVR.npz").plotProjections()
 
 def runTMplots(molObj, anharmonic=True, numDVRenergies=4):
     dvr_dir = os.path.join(molObj.mol_dir, "DVR Results")
@@ -69,14 +69,17 @@ def runTMplots(molObj, anharmonic=True, numDVRenergies=4):
         # tet.psi_trans()
         # tut.DipoleSurfaces()
         # tut.InterpolatedDips()
-        tut.componentTMs(xlim=(2.3, 2.83), ylim=(0.35, 0.75))  # xlim OO
+        # di = [2.163, 2.403, 2.583], tri = [2.3266, 2.5066, 2.7466], tet = [2.3296, 2.5696, 2.8096]
+        # x = di (2.1, 2.6) tri (2.3, 2.8) tet (2.3, 2.9)
+        # y = di (-1.6, -0.6) tri (-0.85, -0.45) tet (0.3, 0.75)
+        tut.componentTMs([2.163, 2.403, 2.583], xlim=(2.1, 2.6), ylim=(-1.6, -0.6))  # xlim OO
     else:
         tot = TM2Dplots(moleculeObj=molObj,
                         TwoDnpz=f"{dvr_dir}/{molObj.method}_2D_DVR.npz")
         # tet = TransitionMoment(moleculeObj=molObj, dimension="2D", TwoDnpz=f"{dvr_dir}/{molObj.method}_2D_DVR.npz")
         # tet.calc_all2Dmus()
-        tot.DipoleSurfaces()
-        tot.componentDMs()
+        # tot.DipoleSurfaces()
+        # tot.componentDMs()
         tot.plotDMcut(ylim=(-6, 6), xlim=(-0.3, 0.6))  # xlim XH
 
 def makeSpectSingle(molObj, spectType, lineType, CHobj=None, AMPobj=None, freq_shift=0, TDMtype=None,
@@ -89,7 +92,7 @@ def makeSpectSingle(molObj, spectType, lineType, CHobj=None, AMPobj=None, freq_s
         if "CC" in spectType:
             twoDnpz = f"{dvr_dir}/HMP_wCC_2D_DVR_OHOO.npz"
         else:
-            twoDnpz = f"{dvr_dir}/HMP_2D_DVR_OHOO.npz"
+            twoDnpz = f"{dvr_dir}/HMP_2D_DVR_XHOO.npz"
     elif molObj.dimension == "1D":
         twoDnpz = f"{dvr_dir}/{molObj.method}_2D_DVR.npz"
         if adiabatType == "anharmonic":
@@ -132,7 +135,7 @@ def makeSpectMultiple(molObjs, spectTypes, lineTypes, freq_shifts, TDMtypes, fil
             zip(molObjs, spectTypes, lineTypes, freq_shifts, TDMtypes, adiabatTypes, inverts):
         if spectType == "Cubic Harmonic":
             if molObj.MoleculeName == "H9O4pls":
-                CHobj = CubicHarmonic(molObj, omegaOO=362.32, omegaOH=2909.44)
+                CHobj = CubicHarmonic(molObj, omegaOO=332, omegaOH=2959, FancyF=299) #  omegaOO=362.32, omegaOH=2909.44)
                 # FancyF =
             elif molObj.MoleculeName == "H7O3pls":
                 CHobj = CubicHarmonic(molObj, omegaOO=413.47, omegaOH=2525.51)
@@ -209,22 +212,21 @@ def makeCompPlot(allSpectValues, scatter=True):
 
 if __name__ == '__main__':
     tetEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "outerO1": 5, "outerO2": 8, "inversion_atom": 8}
-    # triEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "xyPlane_atom": 5, "inversion_atom": 9}
-    # diEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "inversion_atom": 3}
+    triEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "xyPlane_atom": 5, "inversion_atom": 9}
+    diEmbedDict = {"centralO_atom": 1, "xAxis_atom": 0, "inversion_atom": 3}
 
-    # dimer = makeMolecule("H5O2pls", diEmbedDict, dimension="2D")
-    # dimer1D = makeMolecule("H5O2pls", diEmbedDict, dimension="1D")
-    # trimer = makeMolecule("H7O3pls", triEmbedDict, dimension="2D")
-    # trimer1D = makeMolecule("H7O3pls", triEmbedDict, dimension="1D")
-    # tetramer = makeMolecule("H9O4pls", tetEmbedDict, dimension="2D")
+    dimer = makeMolecule("H5O2pls", diEmbedDict, dimension="2D")
+    dimer1D = makeMolecule("H5O2pls", diEmbedDict, dimension="1D")
+    trimer = makeMolecule("H7O3pls", triEmbedDict, dimension="2D")
+    trimer1D = makeMolecule("H7O3pls", triEmbedDict, dimension="1D")
+    tetramer = makeMolecule("H9O4pls", tetEmbedDict, dimension="2D")
     tetramer1D = makeMolecule("H9O4pls", tetEmbedDict, dimension="1D")
-    # STILL BUGS/KINKS IN HARMONIC.. LEAVING FOR NOW, FD SCANS NEED TO BE REDONE ACCORDING TO XH/OO SCAN
-    # runAdiabaticApprox(trimer1D, OO="harmonic", OH="harmonic")
-    # runAdiabaticApprox(tetramer1D, OO="anharmonic", OH="anharmonic")
-    runTMplots(tetramer1D)
-    # runTMplots(tetramer)
-    # runAdiabaticApprox(dimer)
+    runTMplots(dimer)
+    runTMplots(trimer)
+    runTMplots(tetramer)
     # runAdiabaticApprox(tetramer1D)
+    # runAdiabaticApprox(trimer1D)
+    # runAdiabaticApprox(dimer1D)
     # # Calculate the TDM using new expansion.
     # ST1D = ["Transition Dipole Moment"]
     # LT1D = ["C1-", "C6-", "C5-", "C4-", "C3-", "C0-", "C2-"]
@@ -237,7 +239,7 @@ if __name__ == '__main__':
     # molObjs = [tetramer, tetramer1D, tetramer]*3
     # molObjsT = [trimer, trimer1D, trimer]*3
     # molObjsD = [dimer, dimer1D]*3
-    # # CH, XH/OO 2D, A OH/OO 2D, A CC OH/OO 2D, H OH/OO 2D, H CC OH/OO 2D
+    # CH, XH/OO 2D, A OH/OO 2D, A CC OH/OO 2D, H OH/OO 2D, H CC OH/OO 2D
     # LT = ["C0-", "C1-", "C3-"]*3
     # LTd = ["C0-", "C1-"]*3
     # aT = [None, "anharmonic", None]*3
@@ -253,5 +255,8 @@ if __name__ == '__main__':
     #        "Linear OH only", "Linear OH only"]
     # makeSpectMultiple(molObjsT, STm, LT, FS, TT, filename=None, adiabatTypes=aT, graph=False)
     # makeSpectMultiple(molObjsD, STmd, LTd, FSd, TTd, filename=None, adiabatTypes=aTd, graph=False)
-    # makeSpectSingle(dimer1D, "Franck-Condon", "C0-", TDMtype=None, adiabatType="anharmonic")
+    # CHobj = CubicHarmonic(trimer, omegaOO=347, omegaOH=1896, FancyF=285)
+    makeSpectSingle(trimer, "Harmonic Model", "C0-", TDMtype="Dipole Surface", adiabatType="anharmonic")
+    makeSpectSingle(trimer, "Harmonic Model", "C0-", TDMtype="Quadratic OH only", adiabatType="anharmonic")
+    makeSpectSingle(trimer, "Harmonic Model", "C0-", TDMtype="Linear OH only", adiabatType="anharmonic")
 

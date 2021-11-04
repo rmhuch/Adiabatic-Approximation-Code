@@ -13,9 +13,11 @@ class Intensities:
         intensities = np.zeros(es_wfn.shape[1])
         comp_intents = np.zeros(3)
         for i in np.arange(es_wfn.shape[1]):  # excited state wfn
+            print("excited state: ", i)
             for j in np.arange(3):  # transition moment component
                 super_es = tdm[:, j].T * es_wfn[:, i]
                 comp_intents[j] = np.dot(gs_wfn.T, super_es.T)
+                print(j, comp_intents[j])
             intensities[i] = np.linalg.norm(comp_intents) ** 2
         return intensities
 
@@ -23,18 +25,13 @@ class Intensities:
     def TwoD(cls, wfns, tdm, gridpoints=None):
         import matplotlib.pyplot as plt
         intensities = np.zeros(len(wfns)-1)
+        comp_intents = np.zeros(3)
         for i in np.arange(1, len(wfns)):  # starts at 1 to only loop over exciting states
-            x = 0
+            print("excited state: ", i)
             for j in np.arange(3):
-                x += (np.dot(wfns[0], (tdm[:, j] * wfns[i]))) ** 2
-                # y = tdm[:, j]
-                # if gridpoints is not None:
-                #     grid = gridpoints[0].transpose(2, 0, 1)
-                #     plt.contourf(*grid, y.reshape((100, 100)))
-                #     plt.title(f" {i}, {j}")
-                #     plt.colorbar()
-                #     plt.show()
-                # x is magnitude squared because instead of taking the sqrt and then squaring, I just didn't.
-            intensities[i-1] = x
+                super_es = tdm[:, j] * wfns[i]
+                comp_intents[j] = np.dot(wfns[0], super_es)
+                print(j, comp_intents[j])
+            intensities[i-1] = np.linalg.norm(comp_intents) ** 2
         return intensities
 
