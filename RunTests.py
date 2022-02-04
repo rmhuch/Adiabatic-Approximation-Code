@@ -47,10 +47,10 @@ def runAdiabaticApprox(molObj, OH="anharmonic", OO="anharmonic", plotPhasedWfns=
         if makePlots:
             PlotObj = AAplots(moleculeObj=molObj, OHDVRnpz=ohdvr_filename, OODVRnpz=oodvr_filename)
             # PlotObj.ohWfn_PAs()
-            # PlotObj.make_scan_plots()
+            PlotObj.make_scan_plots()
             # PlotObj.ohWfn_plots(wfns2plt=ohwfns2plt)
             # PlotObj.ooWfn_plots(wfns2plt=oowfns2plt)
-            PlotObj.make_adiabatplots()
+            # PlotObj.make_adiabatplots()
     else:
         # AAobj.run_2D_DVR()
         AA2Dplots(molObj, f"{dvr_dir}/rigid_2D_DVR.npz").plotProjections()
@@ -72,6 +72,7 @@ def runTMplots(molObj, anharmonic=True, numDVRenergies=4):
         # di = [2.163, 2.403, 2.583], tri = [2.3266, 2.5066, 2.7466], tet = [2.3296, 2.5696, 2.8096]
         # x = di (2.1, 2.6) tri (2.3, 2.8) tet (2.3, 2.9)
         # y = di (-1.6, -0.6) tri (-0.85, -0.45) tet (0.3, 0.75)
+        # when you do this, tet has to be multipiled by -1!!! Make sure you are checking this fucntion!!
         tut.componentTMs([2.163, 2.403, 2.583], xlim=(2.1, 2.6), ylim=(-1.6, -0.6))  # xlim OO
     else:
         tot = TM2Dplots(moleculeObj=molObj,
@@ -79,8 +80,8 @@ def runTMplots(molObj, anharmonic=True, numDVRenergies=4):
         # tet = TransitionMoment(moleculeObj=molObj, dimension="2D", TwoDnpz=f"{dvr_dir}/{molObj.method}_2D_DVR.npz")
         # tet.calc_all2Dmus()
         # tot.DipoleSurfaces()
-        # tot.componentDMs()
-        tot.plotDMcut(ylim=(-6, 6), xlim=(-0.3, 0.6))  # xlim XH
+        tot.componentDMs()
+        # tot.plotDMcut(ylim=(-6, 6), xlim=(-0.3, 0.6))  # xlim XH
 
 def makeSpectSingle(molObj, spectType, lineType, CHobj=None, AMPobj=None, freq_shift=0, TDMtype=None,
                     adiabatType="anharmonic", invert=False, normalize=True, numDVRenergies=4, fig=None):
@@ -221,9 +222,10 @@ if __name__ == '__main__':
     trimer1D = makeMolecule("H7O3pls", triEmbedDict, dimension="1D")
     tetramer = makeMolecule("H9O4pls", tetEmbedDict, dimension="2D")
     tetramer1D = makeMolecule("H9O4pls", tetEmbedDict, dimension="1D")
-    runTMplots(dimer)
-    runTMplots(trimer)
-    runTMplots(tetramer)
+    a = dimer1D.logData.cut_dictionary()
+    # runTMplots(dimer)
+    # runTMplots(trimer)
+    # runTMplots(tetramer)
     # runAdiabaticApprox(tetramer1D)
     # runAdiabaticApprox(trimer1D)
     # runAdiabaticApprox(dimer1D)
@@ -256,7 +258,7 @@ if __name__ == '__main__':
     # makeSpectMultiple(molObjsT, STm, LT, FS, TT, filename=None, adiabatTypes=aT, graph=False)
     # makeSpectMultiple(molObjsD, STmd, LTd, FSd, TTd, filename=None, adiabatTypes=aTd, graph=False)
     # CHobj = CubicHarmonic(trimer, omegaOO=347, omegaOH=1896, FancyF=285)
-    makeSpectSingle(trimer, "Harmonic Model", "C0-", TDMtype="Dipole Surface", adiabatType="anharmonic")
-    makeSpectSingle(trimer, "Harmonic Model", "C0-", TDMtype="Quadratic OH only", adiabatType="anharmonic")
-    makeSpectSingle(trimer, "Harmonic Model", "C0-", TDMtype="Linear OH only", adiabatType="anharmonic")
+    makeSpectSingle(trimer, "2D w/TDM", "C0-", TDMtype="Dipole Surface", adiabatType="anharmonic")
+    makeSpectSingle(trimer, "2D w/TDM", "C0-", TDMtype="Quadratic OH only", adiabatType="anharmonic")
+    makeSpectSingle(trimer, "2D w/TDM", "C0-", TDMtype="Linear OH only", adiabatType="anharmonic")
 

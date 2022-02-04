@@ -66,7 +66,7 @@ def calc_derivs(fd_ohs, fd_oos, FDgrid, FDvalues):
 def calc_coefs(sys):
     udrive = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     mainD = os.path.join(udrive, sys)
-    dips = np.load(os.path.join(mainD, "structures", f"FD{sys}_rotdips2021.npy"))
+    dips = np.load(os.path.join(mainD, "structures", f"FD{sys}_rotdips2021_test.npy"))
     molObj, gaussdat = pull_data(sys)
     scancoords = np.array(list(gaussdat.cartesians.keys()))
     sort_ind = np.lexsort((scancoords[:, 1], scancoords[:, 0]))

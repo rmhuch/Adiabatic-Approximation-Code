@@ -282,10 +282,12 @@ class MolecularOperations:
             r2_coords, r2_dips = self.rot2(r1_coords, r1_dips, xyPlane_atom, outerO1, outerO2)  # rotation to xy-plane
             rot_coords, rot_dips = self.inverter(r2_coords, r2_dips, inversion_atom)  # inversion of designated atom
             dipadedodas = rot_dips.reshape(len(all_coords), 3)
-        # np.save(os.path.join(self.molecule.mol_dir, "structures", f"FD{self.molecule.MoleculeName}_rotdips2021.npy"),
-        #         dipadedodas)
+        np.save(os.path.join(self.molecule.mol_dir, "structures", f"FD{self.molecule.MoleculeName}_rotdips2021_test.npy"),
+                dipadedodas)
         # np.save(os.path.join(self.molecule.mol_dir, "structures", f"FD{self.molecule.MoleculeName}_rotcoords2021.npy"),
         #         rot_coords)
-        # self.get_xyz(f"{self.molecule.MoleculeName}_{self.molecule.method}_rotcoords2021.xyz", rot_coords,
+        # self.get_xyz(f"{self.molecule.MoleculeName}_{self.molecule.method}_rotcoords_ang.xyz",
+        #              Constants.convert(rot_coords, "angstroms", to_AU=False),
         #              self.atom_str)
+        # print("saved xyz")
         return rot_coords, dipadedodas  # bohr & debye
